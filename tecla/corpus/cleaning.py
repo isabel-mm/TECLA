@@ -1,13 +1,5 @@
 """
 Text cleaning and linguistic normalisation utilities for the TECLA corpus module.
-
-This module offers:
-- structural cleaning,
-- bibliography removal (multilingual),
-- stopword removal (spaCy + NLTK + user-defined),
-- lemmatisation via spaCy.
-
-All operations are explicit: nothing is applied automatically.
 """
 
 import re
@@ -30,51 +22,6 @@ NLTK_LANG_MAP = {
     "it": "italian",
 }
 
-def get_language_stopwords(language, extra_stoplist=None):
-    """
-    Return a combined stopword set:
-    - spaCy stopwords
-    - NLTK stopwords (mapped by language)
-    - user-provided extra stoplist (optional)
-    """
-
-    lang = language.lower()
-    combined = set()
-
-    # --- spaCy stopwords ---
-    try:
-        nlp = _get_spacy_model(lang)
-        combined |= {w.lower() for w in nlp.Defaults.stop_words}
-    except Exception:
-        print(f"⚠️ spaCy stopwords unavailable for '{lang}'.")
-
-    # --- NLTK stopwords ---
-    try:
-        nltk_lang = NLTK_LANG_MAP.get(lang)
-        if nltk_lang:
-            try:
-                nltk_sw = nltk_stopwords.words(nltk_lang)
-            except LookupError:
-                nltk.download("stopwords")
-                nltk_sw = nltk_stopwords.words(nltk_lang)
-
-            combined |= {w.lower() for w in nltk_sw}
-            print(f"✅ Loaded NLTK stopwords for '{nltk_lang}'")
-    except Exception:
-        print(f"⚠️ Could not load NLTK stopwords for '{lang}'.")
-
-    # --- user extra stoplist ---
-    if extra_stoplist:
-        try:
-            if isinstance(extra_stoplist, list):
-                combined |= {w.lower() for w in extra_stoplist}
-            elif isinstance(extra_stoplist, str):
-                combined |= {w.lower() for w in load_stoplist(extra_stoplist)}
-        except Exception:
-            print(f"⚠️ Could not load extra stoplist '{extra_stoplist}'.")
-
-    return combined
-
 
 # ---------------------------------------------------------------------------
 # MODEL SELECTION TABLE
@@ -92,44 +39,84 @@ SPACY_MODEL_TABLE = {
 _SPACY_MODELS = {}
 
 # ---------------------------------------------------------------------------
-# LAZY LOADING OF SPACY MODELS
+# LAZY SPACY LOADING
 # ---------------------------------------------------------------------------
 
 def _get_spacy_model(language):
-    """Load or download spaCy model safely."""
+    """Load or download the required spaCy model."""
     import spacy.cli
 
     lang = language.lower()
-    model_name = SPACY_MODEL_TABLE.get(lang)
+    model = SPACY_MODEL_TABLE.get(lang)
 
-    if not model_name:
-        print(f"⚠️ No spaCy model for '{lang}'. Using blank model.")
+    if not model:
+        print(f"⚠️ No spaCy model for '{language}', using blank('{lang}')")
         nlp = spacy.blank(lang)
         nlp.add_pipe("sentencizer")
         return nlp
 
-    if model_name in _SPACY_MODELS:
-        print(f"🔄 Using cached spaCy model: {model_name}")
-        return _SPACY_MODELS[model_name]
-
-    print(f"🔍 Attempting to load spaCy model: {model_name}")
+    if model in _SPACY_MODELS:
+        return _SPACY_MODELS[model]
 
     try:
-        nlp = spacy.load(model_name)
-        print(f"✅ Loaded spaCy model: {model_name}")
+        nlp = spacy.load(model)
+        _SPACY_MODELS[model] = nlp
+        return nlp
+
     except OSError:
-        print(f"⚠️ Model '{model_name}' not found. Downloading...")
+        print(f"⚠️ Missing spaCy model '{model}', trying to download...")
         try:
-            spacy.cli.download(model_name)
-            nlp = spacy.load(model_name)
-            print(f"🎉 Download successful: {model_name}")
-        except Exception:
-            print(f"❌ Failed. Using blank model for '{lang}'.")
+            spacy.cli.download(model)
+            nlp = spacy.load(model)
+            _SPACY_MODELS[model] = nlp
+            return nlp
+        except:
+            print(f"❌ Download failed. Using blank('{lang}')")
             nlp = spacy.blank(lang)
             nlp.add_pipe("sentencizer")
+            _SPACY_MODELS[model] = nlp
+            return nlp
 
-    _SPACY_MODELS[model_name] = nlp
-    return nlp
+
+# ---------------------------------------------------------------------------
+# STOPWORDS (spaCy + NLTK + extra)
+# ---------------------------------------------------------------------------
+
+def get_language_stopwords(language, extra_stoplist=None):
+    lang = language.lower()
+    combined = set()
+
+    # spaCy stopwords
+    try:
+        nlp = _get_spacy_model(lang)
+        combined |= {w.lower() for w in nlp.Defaults.stop_words}
+    except:
+        print(f"⚠️ spaCy stopwords unavailable for '{lang}'")
+
+    # NLTK stopwords
+    try:
+        nltk_lang = NLTK_LANG_MAP.get(lang)
+        if nltk_lang:
+            combined |= set(nltk_stopwords.words(nltk_lang))
+    except:
+        try:
+            nltk.download("stopwords")
+            nltk_lang = NLTK_LANG_MAP.get(lang)
+            combined |= set(nltk_stopwords.words(nltk_lang))
+        except:
+            print(f"⚠️ NLTK stopwords unavailable for '{lang}'")
+
+    # Extra stoplist
+    if extra_stoplist:
+        if isinstance(extra_stoplist, list):
+            combined |= {w.lower() for w in extra_stoplist}
+        elif isinstance(extra_stoplist, str):
+            try:
+                combined |= {w.lower() for w in load_stoplist(extra_stoplist)}
+            except:
+                print(f"⚠️ Could not load extra stoplist '{extra_stoplist}'")
+
+    return combined
 
 
 # ---------------------------------------------------------------------------
@@ -139,40 +126,86 @@ def _get_spacy_model(language):
 PAGE_NUMBER_LINE = re.compile(r"^\s*\d{1,3}\s*$")
 
 def clean_structure(text, remove_short_lines=True, remove_page_numbers=True):
-    lines = text.split("\n")
-    cleaned = []
-    for line in lines:
-        s = line.strip()
-        if not s:
+    result = []
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if not stripped:
             continue
-        if remove_page_numbers and PAGE_NUMBER_LINE.fullmatch(s):
+        if remove_page_numbers and PAGE_NUMBER_LINE.fullmatch(stripped):
             continue
-        if remove_short_lines and len(s.split()) < 3:
+        if remove_short_lines and len(stripped.split()) < 3:
             continue
-        cleaned.append(s)
-    return "\n".join(cleaned)
+        result.append(stripped)
+    return "\n".join(result)
+
 
 def remove_numeric_only_lines(text):
     pattern = r'^\s*[\(\[\{\-–—\*•●"]*\s*\d+\s*[\)\]\}\-–—\*•●"."]*\s*$'
-    return "\n".join(line for line in text.splitlines() if not re.fullmatch(pattern, line))
+    return "\n".join(
+        line for line in text.splitlines()
+        if not re.fullmatch(pattern, line)
+    )
 
 
 # ---------------------------------------------------------------------------
-# BIBLIOGRAPHY REMOVAL
+# BIBLIOGRAPHY REMOVAL — all functions defined BEFORE dispatcher
 # ---------------------------------------------------------------------------
 
-def _remove_bibliography_generic(text, section_titles, reference_patterns):
-    for title in section_titles:
-        match = re.search(title, text, flags=re.IGNORECASE)
-        if match:
-            start = match.start()
-            following = text[start:]
-            if any(re.search(p, following) for p in reference_patterns):
-                return text[:start].strip()
+def _remove_bib(text, titles, refs):
+    for title in titles:
+        m = re.search(title, text, flags=re.IGNORECASE)
+        if m:
+            body = text[m.start():]
+            for r in refs:
+                if re.search(r, body):
+                    return text[:m.start()].strip()
     return text
 
-# Language-specific variants…
 
+def remove_bibliography_es(text):
+    return _remove_bib(
+        text,
+        [r'\bREFERENCIAS?\s+BIBLIOGR', r'\bBIBLIOGRAF[ÍI]A\b'],
+        [r'\[\d+\]', r'\(\d{4}\)', r'https?://']
+    )
+
+def remove_bibliography_en(text):
+    return _remove_bib(
+        text,
+        [r'\bREFERENCES\b', r'\bBIBLIOGRAPHY\b', r'WORKS\s+CITED'],
+        [r'\[\d+\]', r'\(\d{4}\)', r'https?://']
+    )
+
+def remove_bibliography_fr(text):
+    return _remove_bib(
+        text,
+        [r'\bRÉFÉRENCES\b', r'\bBIBLIOGRAPHIE\b'],
+        [r'\(\d{4}\)', r'https?://']
+    )
+
+def remove_bibliography_de(text):
+    return _remove_bib(
+        text,
+        [r'\bLITERATUR\b', r'\bBIBLIOGRAPHIE\b'],
+        [r'\(\d{4}\)', r'https?://']
+    )
+
+def remove_bibliography_it(text):
+    return _remove_bib(
+        text,
+        [r'\bBIBLIOGRAFIA\b'],
+        [r'\(\d{4}\)', r'https?://']
+    )
+
+def remove_bibliography_pt(text):
+    return _remove_bib(
+        text,
+        [r'\bREFERÊNCIAS\b', r'\bBIBLIOGRAFIA\b'],
+        [r'\(\d{4}\)', r'https?://']
+    )
+
+
+# Dispatcher — now everything ABOVE is defined
 def remove_bibliography(text, language="en"):
     lang = language.lower()
     mapping = {
@@ -183,23 +216,25 @@ def remove_bibliography(text, language="en"):
         "it": remove_bibliography_it,
         "pt": remove_bibliography_pt,
     }
-    return mapping.get(lang, lambda x: x)(text)
+    fn = mapping.get(lang)
+    return fn(text) if fn else text
 
 
 # ---------------------------------------------------------------------------
-# STOPWORDS, USER STOPLISTS, LEMMATISATION
+# LEMMATISATION & STOPWORD APPLICATION
 # ---------------------------------------------------------------------------
 
 def remove_stopwords(text, stopwords):
     return " ".join(t for t in text.split() if t.lower() not in stopwords)
 
 def apply_user_stoplist(text, stoplist):
-    sl = {w.lower() for w in stoplist}
-    return " ".join(t for t in text.split() if t.lower() not in sl)
+    stop = {w.lower() for w in stoplist}
+    return " ".join(t for t in text.split() if t.lower() not in stop)
 
 def lemmatize_text(text, language="en"):
     nlp = _get_spacy_model(language)
-    return " ".join(token.lemma_ or token.text for token in nlp(text))
+    doc = nlp(text)
+    return " ".join(token.lemma_ or token.text for token in doc)
 
 
 # ---------------------------------------------------------------------------
@@ -216,6 +251,7 @@ def clean_text(
     remove_bibliography_flag=False,
     language="en",
 ):
+
     cleaned = text
 
     if remove_bibliography_flag:
@@ -230,10 +266,7 @@ def clean_text(
         cleaned = remove_stopwords(cleaned, sw)
 
     if stoplist:
-        if isinstance(stoplist, list):
-            cleaned = apply_user_stoplist(cleaned, stoplist)
-        elif isinstance(stoplist, str):
-            cleaned = apply_user_stoplist(cleaned, load_stoplist(stoplist))
+        cleaned = apply_user_stoplist(cleaned, load_stoplist(stoplist))
 
     if lemmatize_flag:
         cleaned = lemmatize_text(cleaned, language)
