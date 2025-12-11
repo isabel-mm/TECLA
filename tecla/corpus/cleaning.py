@@ -18,35 +18,86 @@ from .utils import load_stoplist
 
 
 # ---------------------------------------------------------------------------
-# LAZY SPACY MODEL LOADING
+# MODEL SELECTION TABLE
 # ---------------------------------------------------------------------------
+
+# Mapping TECLA languages to their appropriate spaCy models
+SPACY_MODEL_TABLE = {
+    "en": "en_core_web_sm",      # English uses 'web'
+    "es": "es_core_news_sm",     # Spanish uses 'news'
+    "fr": "fr_core_news_sm",
+    "de": "de_core_news_sm",
+    "it": "it_core_news_sm",
+    "pt": "pt_core_news_sm",
+}
 
 _SPACY_MODELS = {}
 
 
+# ---------------------------------------------------------------------------
+# LAZY SPACY MODEL LOADING
+# ---------------------------------------------------------------------------
+
 def _get_spacy_model(language):
     """
-    Lazy loader for spaCy language models.
-    Ensures that models are loaded only once.
+    Load a spaCy model for the given language.
 
-    Parameters:
-        language (str): Language code ("en", "es", ...).
+    Behavior:
+    1. Try to load the appropriate model from SPACY_MODEL_TABLE.
+    2. If missing, automatically download it.
+    3. If download fails (no internet), fallback to a blank model.
 
-    Returns:
-        nlp: spaCy model.
-
-    Raises:
-        RuntimeError: If the language model is not installed.
+    This ensures TECLA NEVER crashes because of unavailable spaCy models.
     """
-    if language not in _SPACY_MODELS:
+
+    import spacy.cli
+
+    lang = language.lower()
+    model_name = SPACY_MODEL_TABLE.get(lang)
+
+    if not model_name:
+        # Unsupported language → fallback immediately
+        print(
+            f"⚠️ No spaCy model defined for language '{language}'. "
+            f"Using 'spacy.blank(\"{language}\")' as fallback."
+        )
+        nlp = spacy.blank(language)
+        if "sentencizer" not in nlp.pipe_names:
+            nlp.add_pipe("sentencizer")
+        return nlp
+
+    # Return cached model if already loaded
+    if model_name in _SPACY_MODELS:
+        return _SPACY_MODELS[model_name]
+
+    # 1. Try loading the model directly
+    try:
+        nlp = spacy.load(model_name)
+        _SPACY_MODELS[model_name] = nlp
+        return nlp
+
+    except OSError:
+        print(f"⚠️ spaCy model '{model_name}' not found. Attempting download...")
+
+        # 2. Download model automatically
         try:
-            _SPACY_MODELS[language] = spacy.load(f"{language}_core_web_sm")
+            spacy.cli.download(model_name)
+            print(f"✅ Model '{model_name}' downloaded successfully.")
+            nlp = spacy.load(model_name)
+            _SPACY_MODELS[model_name] = nlp
+            return nlp
+
         except Exception:
-            raise RuntimeError(
-                f"spaCy model for '{language}' could not be loaded. "
-                f"Install it via: python -m spacy download {language}_core_web_sm"
+            # 3. Final fallback
+            print(
+                f"⚠️ Could not download '{model_name}'. "
+                f"Using a minimal model 'spacy.blank(\"{language}\")'."
             )
-    return _SPACY_MODELS[language]
+            nlp = spacy.blank(language)
+            if "sentencizer" not in nlp.pipe_names:
+                nlp.add_pipe("sentencizer")
+            _SPACY_MODELS[model_name] = nlp
+            return nlp
 
 
 # ---------------------------------------------------------------------------
@@ -58,17 +109,9 @@ PAGE_NUMBER_LINE = re.compile(r"^\s*\d{1,3}\s*$")
 
 def clean_structure(text, remove_short_lines=True, remove_page_numbers=True):
     """
-    Apply light structural cleaning to raw text:
+    Apply light structural cleaning:
     - remove short lines (< 3 words),
-    - remove lines that consist solely of page numbers.
-
-    Parameters:
-        text (str): Raw text.
-        remove_short_lines (bool): Enables removal of short lines.
-        remove_page_numbers (bool): Enables removal of page-number-like lines.
-
-    Returns:
-        str: Structurally cleaned text.
+    - remove lines consisting solely of page numbers.
     """
     lines = text.split("\n")
     cleaned = []
@@ -91,14 +134,8 @@ def clean_structure(text, remove_short_lines=True, remove_page_numbers=True):
 
 def remove_numeric_only_lines(text):
     """
-    Remove lines that consist exclusively of numbers or numeric markers:
-    e.g., "12", "(3)", "- 4 -", "• 15", etc.
-
-    Parameters:
-        text (str)
-
-    Returns:
-        str: Text without numeric-only lines.
+    Remove lines that consist exclusively of numbers or numeric markers.
+    Examples: "12", "(3)", "- 4 -", "• 15", etc.
     """
     pattern = r'^\s*[\(\[\{\-–—\*•●"]*\s*\d+\s*[\)\]\}\-–—\*•●"."]*\s*$'
     filtered = [
@@ -114,27 +151,18 @@ def remove_numeric_only_lines(text):
 
 def _remove_bibliography_generic(text, section_titles, reference_patterns):
     """
-    Internal helper for removing bibliography sections based on:
-    - detection of bibliography header,
-    - confirmation via citation-like patterns in the following text.
-
-    Parameters:
-        text (str)
-        section_titles (list[str])
-        reference_patterns (list[str])
-
-    Returns:
-        str
+    Internal helper for removing bibliography sections.
     """
     for title in section_titles:
         match = re.search(title, text, flags=re.IGNORECASE)
         if match:
-            start_pos = match.start()
-            remaining = text[start_pos:]
+            start = match.start()
+            remaining = text[start:]
 
             for pattern in reference_patterns:
                 if re.search(pattern, remaining):
-                    return text[:start_pos].strip()
+                    return text[:start].strip()
+
     return text
 
 
@@ -148,8 +176,6 @@ def remove_bibliography_es(text):
         r'\n\s*\[\d+\]\s+.+',
         r'\n\s*[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+,\s[A-Z]\.\s*\(?\d{4}\)?',
         r'\n\s*https?://',
-        r'\n\s*[—\-]\s.+',
-        r'\n\s*[A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ]+.*\d{4}',
     ]
     return _remove_bibliography_generic(text, section_titles, reference_patterns)
 
@@ -164,7 +190,6 @@ def remove_bibliography_en(text):
         r'\n\s*\[\d+\]\s+.+',
         r'\n\s*[A-Z][a-z]+,\s[A-Z]\.\s*\(?\d{4}\)?',
         r'\n\s*https?://',
-        r'\n\s*[—\-]\s.+',
     ]
     return _remove_bibliography_generic(text, section_titles, reference_patterns)
 
@@ -222,81 +247,35 @@ def remove_bibliography_pt(text):
 
 
 def remove_bibliography(text, language="en"):
-    """
-    Dispatcher for bibliography removal by language.
-
-    Parameters:
-        text (str)
-        language (str): 'en', 'es', 'de', 'fr', 'it', 'pt'
-
-    Returns:
-        str
-    """
     lang = language.lower()
 
-    if lang == "es":
-        return remove_bibliography_es(text)
-    if lang == "en":
-        return remove_bibliography_en(text)
-    if lang == "de":
-        return remove_bibliography_de(text)
-    if lang == "fr":
-        return remove_bibliography_fr(text)
-    if lang == "it":
-        return remove_bibliography_it(text)
-    if lang == "pt":
-        return remove_bibliography_pt(text)
+    if lang == "es": return remove_bibliography_es(text)
+    if lang == "en": return remove_bibliography_en(text)
+    if lang == "de": return remove_bibliography_de(text)
+    if lang == "fr": return remove_bibliography_fr(text)
+    if lang == "it": return remove_bibliography_it(text)
+    if lang == "pt": return remove_bibliography_pt(text)
 
-    return text  # unsupported language -> return unchanged
+    return text
 
 
 # ---------------------------------------------------------------------------
-# LINGUISTIC CLEANING
+# STOPWORDS, USER STOPLISTS, LEMMATISATION
 # ---------------------------------------------------------------------------
 
 def remove_stopwords(text, stopwords):
-    """
-    Remove stopwords from the text.
-
-    Parameters:
-        text (str)
-        stopwords (set[str])
-
-    Returns:
-        str
-    """
     tokens = text.split()
     filtered = [t for t in tokens if t.lower() not in stopwords]
     return " ".join(filtered)
 
 
 def apply_user_stoplist(text, stoplist):
-    """
-    Remove user-defined stop words.
-
-    Parameters:
-        text (str)
-        stoplist (set[str])
-
-    Returns:
-        str
-    """
     tokens = text.split()
     filtered = [t for t in tokens if t.lower() not in stoplist]
     return " ".join(filtered)
 
 
 def lemmatize_text(text, language="en"):
-    """
-    Lemmatises the text using spaCy.
-
-    Parameters:
-        text (str)
-        language (str)
-
-    Returns:
-        str
-    """
     nlp = _get_spacy_model(language)
     doc = nlp(text)
     lemmas = [token.lemma_ for token in doc if token.lemma_.strip()]
@@ -318,18 +297,6 @@ def clean_text(
 ):
     """
     High-level cleaning function used optionally within TECLA's corpus builder.
-
-    Parameters:
-        text (str)
-        structure (bool): Apply structural cleaning.
-        remove_stopwords_flag (bool): Remove spaCy default stopwords.
-        stoplist (str or list or None): User-defined stoplist.
-        lemmatize_flag (bool): Apply spaCy lemmatisation.
-        remove_bibliography_flag (bool): Remove bibliography section.
-        language (str): Language code.
-
-    Returns:
-        str: Fully cleaned or partially cleaned text.
     """
     cleaned = text
 
@@ -342,7 +309,7 @@ def clean_text(
     if structure:
         cleaned = clean_structure(cleaned)
 
-    # --- stopwords ------------------------------------------------------------
+    # --- stopword removal -----------------------------------------------------
     if remove_stopwords_flag:
         nlp = _get_spacy_model(language)
         default_stopwords = {w.lower() for w in nlp.Defaults.stop_words}

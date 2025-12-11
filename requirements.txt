@@ -1,0 +1,14 @@
+# Core NLP dependencies
+spacy>=3.7.0
+pdfminer.six>=20221105
+langid>=1.1.6
+
+# Optional but recommended for future text analytics
+pandas>=2.0.0
+numpy>=1.25.0
+
+# Utilities
+tqdm>=4.65.0
+
+# Ensure UTF-8-safe file handling in Windows
+chardet>=5.0.0
