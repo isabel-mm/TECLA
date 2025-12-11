@@ -9,7 +9,7 @@ This module offers:
 - lemmatisation via spaCy (optional).
 
 All operations are explicit: nothing is applied automatically.
-This guarantees methodological transparency and reproducibility.
+This ensures transparency and reproducibility.
 """
 
 import re
@@ -21,10 +21,9 @@ from .utils import load_stoplist
 # MODEL SELECTION TABLE
 # ---------------------------------------------------------------------------
 
-# Mapping TECLA languages to their appropriate spaCy models
 SPACY_MODEL_TABLE = {
-    "en": "en_core_web_sm",      # English uses 'web'
-    "es": "es_core_news_sm",     # Spanish uses 'news'
+    "en": "en_core_web_sm",
+    "es": "es_core_news_sm",
     "fr": "fr_core_news_sm",
     "de": "de_core_news_sm",
     "it": "it_core_news_sm",
@@ -35,19 +34,17 @@ _SPACY_MODELS = {}
 
 
 # ---------------------------------------------------------------------------
-# LAZY SPACY MODEL LOADING
+# LAZY SPACY MODEL LOADING (with printed status)
 # ---------------------------------------------------------------------------
 
 def _get_spacy_model(language):
     """
     Load a spaCy model for the given language.
 
-    Behavior:
-    1. Try to load the appropriate model from SPACY_MODEL_TABLE.
-    2. If missing, automatically download it.
-    3. If download fails (no internet), fallback to a blank model.
-
-    This ensures TECLA NEVER crashes because of unavailable spaCy models.
+    Behaviour:
+    1. Try loading the model from SPACY_MODEL_TABLE.
+    2. If missing, print a warning and attempt download.
+    3. If download fails, fallback to a blank model.
     """
 
     import spacy.cli
@@ -55,45 +52,45 @@ def _get_spacy_model(language):
     lang = language.lower()
     model_name = SPACY_MODEL_TABLE.get(lang)
 
+    # Unsupported language → fallback
     if not model_name:
-        # Unsupported language → fallback immediately
-        print(
-            f"⚠️ No spaCy model defined for language '{language}'. "
-            f"Using 'spacy.blank(\"{language}\")' as fallback."
-        )
-        nlp = spacy.blank(language)
+        print(f"⚠️ No spaCy model registered for '{language}'. Using blank model.")
+        nlp = spacy.blank(lang)
         if "sentencizer" not in nlp.pipe_names:
             nlp.add_pipe("sentencizer")
         return nlp
 
-    # Return cached model if already loaded
+    # Cached?
     if model_name in _SPACY_MODELS:
+        print(f"🔄 Using cached spaCy model: {model_name}")
         return _SPACY_MODELS[model_name]
 
-    # 1. Try loading the model directly
+    # Try loading the model
+    print(f"🔍 Attempting to load spaCy model: {model_name}")
+
     try:
         nlp = spacy.load(model_name)
+        print(f"✅ Loaded spaCy model: {model_name}")
         _SPACY_MODELS[model_name] = nlp
         return nlp
 
     except OSError:
         print(f"⚠️ spaCy model '{model_name}' not found. Attempting download...")
 
-        # 2. Download model automatically
         try:
             spacy.cli.download(model_name)
-            print(f"✅ Model '{model_name}' downloaded successfully.")
+            print(f"🎉 Download successful: {model_name}")
+
             nlp = spacy.load(model_name)
             _SPACY_MODELS[model_name] = nlp
             return nlp
 
         except Exception:
-            # 3. Final fallback
             print(
-                f"⚠️ Could not download '{model_name}'. "
-                f"Using a minimal model 'spacy.blank(\"{language}\")'."
+                f"❌ Download failed for '{model_name}'. "
+                f"Using blank model for '{language}'."
             )
-            nlp = spacy.blank(language)
+            nlp = spacy.blank(lang)
             if "sentencizer" not in nlp.pipe_names:
                 nlp.add_pipe("sentencizer")
             _SPACY_MODELS[model_name] = nlp
@@ -106,12 +103,9 @@ def _get_spacy_model(language):
 
 PAGE_NUMBER_LINE = re.compile(r"^\s*\d{1,3}\s*$")
 
-
 def clean_structure(text, remove_short_lines=True, remove_page_numbers=True):
     """
-    Apply light structural cleaning:
-    - remove short lines (< 3 words),
-    - remove lines consisting solely of page numbers.
+    Remove page numbers and very short lines (<3 words).
     """
     lines = text.split("\n")
     cleaned = []
@@ -135,7 +129,6 @@ def clean_structure(text, remove_short_lines=True, remove_page_numbers=True):
 def remove_numeric_only_lines(text):
     """
     Remove lines that consist exclusively of numbers or numeric markers.
-    Examples: "12", "(3)", "- 4 -", "• 15", etc.
     """
     pattern = r'^\s*[\(\[\{\-–—\*•●"]*\s*\d+\s*[\)\]\}\-–—\*•●"."]*\s*$'
     filtered = [
@@ -167,83 +160,68 @@ def _remove_bibliography_generic(text, section_titles, reference_patterns):
 
 
 # --- Spanish ----------------------------------------------------------------
+
 def remove_bibliography_es(text):
     section_titles = [
-        r'\n\s*(?:REFERENCIAS\s+BIBLIOGR[ÁA]FICAS|BIBLIOGRAF[ÍI]A(?:\s+CITADA|\s+REFERENCIADA)?)\s*\n'
+        r'\bREFERENCIAS?\s+BIBLIOGR[ÁA]FICAS?\b',
+        r'\bBIBLIOGRAF[ÍI]A\b'
     ]
     reference_patterns = [
-        r'\n\s*\d+\.\s+.+',
-        r'\n\s*\[\d+\]\s+.+',
-        r'\n\s*[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+,\s[A-Z]\.\s*\(?\d{4}\)?',
-        r'\n\s*https?://',
+        r'\[\d+\]', r'\(\d{4}\)', r'https?://', r'\d+\.\s'
     ]
     return _remove_bibliography_generic(text, section_titles, reference_patterns)
 
 
 # --- English ----------------------------------------------------------------
+
 def remove_bibliography_en(text):
     section_titles = [
-        r'\n\s*(?:REFERENCES|BIBLIOGRAPHY|WORKS\s+CITED)\s*\n'
+        r'\bREFERENCES\b', r'\bBIBLIOGRAPHY\b', r'\bWORKS\s+CITED\b'
     ]
     reference_patterns = [
-        r'\n\s*\d+\.\s+.+',
-        r'\n\s*\[\d+\]\s+.+',
-        r'\n\s*[A-Z][a-z]+,\s[A-Z]\.\s*\(?\d{4}\)?',
-        r'\n\s*https?://',
+        r'\[\d+\]', r'\(\d{4}\)', r'https?://', r'\d+\.\s'
     ]
     return _remove_bibliography_generic(text, section_titles, reference_patterns)
 
 
 # --- German -----------------------------------------------------------------
+
 def remove_bibliography_de(text):
-    section_titles = [
-        r'\n\s*(?:LITERATUR|QUELLENVERZEICHNIS|BIBLIOGRAPHIE)\s*\n'
-    ]
-    reference_patterns = [
-        r'\n\s*\d+\.\s+.+',
-        r'\n\s*[A-Z][a-zäöüß]+,\s[A-Z]\.\s*\(?\d{4}\)?',
-        r'\n\s*https?://'
-    ]
-    return _remove_bibliography_generic(text, section_titles, reference_patterns)
+    return _remove_bibliography_generic(
+        text,
+        [r'\bLITERATUR\b', r'\bBIBLIOGRAPHIE\b'],
+        [r'\(\d{4}\)', r'https?://']
+    )
 
 
 # --- French -----------------------------------------------------------------
+
 def remove_bibliography_fr(text):
-    section_titles = [
-        r'\n\s*(?:RÉFÉRENCES|BIBLIOGRAPHIE|TRAVAUX\s+CITÉS)\s*\n'
-    ]
-    reference_patterns = [
-        r'\n\s*\d+\.\s+.+',
-        r'\n\s*[A-Z][a-z]+,\s[A-Z]\.\s*\(?\d{4}\)?',
-        r'\n\s*https?://',
-    ]
-    return _remove_bibliography_generic(text, section_titles, reference_patterns)
+    return _remove_bibliography_generic(
+        text,
+        [r'\bRÉFÉRENCES\b', r'\bBIBLIOGRAPHIE\b'],
+        [r'\(\d{4}\)', r'https?://']
+    )
 
 
 # --- Italian ----------------------------------------------------------------
+
 def remove_bibliography_it(text):
-    section_titles = [
-        r'\n\s*(?:BIBLIOGRAFIA|RIFERIMENTI\s+BIBLIOGRAFICI|OPERE\s+CITATE)\s*\n'
-    ]
-    reference_patterns = [
-        r'\n\s*\d+\.\s+.+',
-        r'\n\s*[A-Z][a-z]+,\s[A-Z]\.\s*\(?\d{4}\)?',
-        r'\n\s*https?://',
-    ]
-    return _remove_bibliography_generic(text, section_titles, reference_patterns)
+    return _remove_bibliography_generic(
+        text,
+        [r'\bBIBLIOGRAFIA\b'],
+        [r'\(\d{4}\)', r'https?://']
+    )
 
 
 # --- Portuguese --------------------------------------------------------------
+
 def remove_bibliography_pt(text):
-    section_titles = [
-        r'\n\s*(?:REFERÊNCIAS|BIBLIOGRAFIA|OBRAS\s+CITADAS)\s*\n'
-    ]
-    reference_patterns = [
-        r'\n\s*\d+\.\s+.+',
-        r'\n\s*[A-Z][a-z]+,\s[A-Z]\.\s*\(?\d{4}\)?',
-        r'\n\s*https?://',
-    ]
-    return _remove_bibliography_generic(text, section_titles, reference_patterns)
+    return _remove_bibliography_generic(
+        text,
+        [r'\bREFERÊNCIAS\b', r'\bBIBLIOGRAFIA\b'],
+        [r'\(\d{4}\)', r'https?://']
+    )
 
 
 def remove_bibliography(text, language="en"):
@@ -270,6 +248,7 @@ def remove_stopwords(text, stopwords):
 
 
 def apply_user_stoplist(text, stoplist):
+    stoplist = {w.lower() for w in stoplist}
     tokens = text.split()
     filtered = [t for t in tokens if t.lower() not in stoplist]
     return " ".join(filtered)
@@ -278,7 +257,12 @@ def apply_user_stoplist(text, stoplist):
 def lemmatize_text(text, language="en"):
     nlp = _get_spacy_model(language)
     doc = nlp(text)
-    lemmas = [token.lemma_ for token in doc if token.lemma_.strip()]
+
+    lemmas = []
+    for token in doc:
+        lemma = token.lemma_.strip()
+        lemmas.append(lemma if lemma else token.text)
+
     return " ".join(lemmas)
 
 
@@ -298,29 +282,30 @@ def clean_text(
     """
     High-level cleaning function used optionally within TECLA's corpus builder.
     """
+
     cleaned = text
 
-    # --- bibliography removal ------------------------------------------------
+    # Bibliography removal
     if remove_bibliography_flag:
         cleaned = remove_bibliography(cleaned, language)
         cleaned = remove_numeric_only_lines(cleaned)
 
-    # --- structural cleaning --------------------------------------------------
+    # Structural cleaning
     if structure:
         cleaned = clean_structure(cleaned)
 
-    # --- stopword removal -----------------------------------------------------
+    # Stopword removal
     if remove_stopwords_flag:
         nlp = _get_spacy_model(language)
         default_stopwords = {w.lower() for w in nlp.Defaults.stop_words}
         cleaned = remove_stopwords(cleaned, default_stopwords)
 
-    # --- user stoplist --------------------------------------------------------
+    # User stoplist
     if stoplist:
         user_stop = load_stoplist(stoplist)
         cleaned = apply_user_stoplist(cleaned, user_stop)
 
-    # --- lemmatisation --------------------------------------------------------
+    # Lemmatization
     if lemmatize_flag:
         cleaned = lemmatize_text(cleaned, language)
 

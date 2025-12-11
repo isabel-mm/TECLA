@@ -65,15 +65,6 @@ def build_corpus(
         metadata_file (str): Path to metadata CSV.
         clean (bool): Whether to apply text cleaning.
         clean_params (dict or None): Parameters for cleaning.
-                                     Example:
-                                     {
-                                         "structure": True,
-                                         "remove_stopwords_flag": True,
-                                         "lemmatize_flag": False,
-                                         "remove_bibliography_flag": True,
-                                         "stoplist": "mylist.txt",
-                                         "language": "es"
-                                     }
         compute_stats (bool): Whether to compute corpus-level statistics.
         stats_output (str): Path to save statistics CSV.
 
@@ -83,6 +74,7 @@ def build_corpus(
             "statistics": corpus_stats or None
         }
     """
+
     # defaults to avoid None checks
     if clean_params is None:
         clean_params = {}
@@ -152,9 +144,25 @@ def build_corpus(
 
     stats = None
     if compute_stats:
-        # If cleaning is enabled, statistics use the cleaned corpus
         folder_for_stats = clean_dir if clean else raw_dir
-        stats = corpus_statistics(folder_for_stats, output_csv=stats_output)
+
+        from .statistics import corpus_statistics, compute_global_statistics
+
+        # Document-level statistics
+        stats_list = corpus_statistics(folder_for_stats, output_csv=None)
+
+        # Global corpus statistics
+        global_stats = compute_global_statistics(stats_list)
+        stats_list.append(global_stats)
+
+        # Save final CSV with all statistics
+        with open(stats_output, "w", newline="", encoding="utf-8") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=list(stats_list[0].keys()))
+            writer.writeheader()
+            for row in stats_list:
+                writer.writerow(row)
+
+        stats = stats_list
 
     return {
         "metadata": metadata_rows,
