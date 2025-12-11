@@ -3,26 +3,25 @@ Corpus statistics utilities for the TECLA corpus module.
 
 This module provides:
 - document-level descriptive statistics,
-- optional corpus-level aggregation,
-- CSV export of computed statistics.
+- optional corpus-level aggregation (global statistics),
+- structured output for integration with TECLA.
 
-Statistics computed are intentionally lightweight and rely only on text:
+Statistics computed (lightweight, text-only):
 - token count
 - type count (unique tokens)
 - type-token ratio (TTR)
-- lexical density (content words / total words, simple heuristic)
-- average sentence length (in words)
-- proportion of hapax legomena
-- stopword proportion (optional, if a stopword list is provided)
-
-All functions are designed to be transparent and reproducible.
+- hapax legomena ratio
+- stopword proportion
+- lexical density (simple heuristic)
+- sentence count
+- average sentence length
 """
 
 import os
 import csv
 import re
 from collections import Counter
-from .utils import ensure_folder, load_stoplist
+from .utils import load_stoplist
 
 
 # ---------------------------------------------------------------------------
@@ -30,30 +29,13 @@ from .utils import ensure_folder, load_stoplist
 # ---------------------------------------------------------------------------
 
 def _tokenise(text):
-    """
-    Minimal tokeniser: splits on whitespace.
-    TECLA intentionally avoids linguistic assumptions here.
-
-    Parameters:
-        text (str)
-
-    Returns:
-        list[str]: List of tokens.
-    """
+    """Minimal whitespace tokeniser."""
     return text.split()
 
 
 def _sentence_split(text):
-    """
-    Minimal sentence segmentation using punctuation heuristics.
-
-    Parameters:
-        text (str)
-
-    Returns:
-        list[str]
-    """
-    return re.split(r"[.!?]+", text)
+    """Simple heuristic sentence segmentation."""
+    return [s.strip() for s in re.split(r"[.!?]+", text) if s.strip()]
 
 
 # ---------------------------------------------------------------------------
@@ -64,45 +46,50 @@ def compute_document_statistics(text, stopwords=None):
     """
     Compute descriptive statistics for a single document.
 
-    Parameters:
-        text (str): Document text.
-        stopwords (set[str] or None): Optional set of stopwords.
-
-    Returns:
-        dict: Statistics for the document.
+    Returns a dict containing:
+    - token_count
+    - type_count
+    - ttr
+    - hapax_ratio
+    - stopword_ratio
+    - lexical_density
+    - sentence_count
+    - avg_sentence_length
     """
+
     tokens = _tokenise(text)
     token_count = len(tokens)
 
-    types = set(tokens)
-    type_count = len(types)
-
-    # Avoid division by zero errors
-    ttr = type_count / token_count if token_count > 0 else 0.0
-
-    # Hapax legomena
+    # Types and frequencies
     freq = Counter(tokens)
+    type_count = len(freq)
+
+    ttr = type_count / token_count if token_count else 0.0
+
     hapax = sum(1 for t in freq if freq[t] == 1)
-    hapax_ratio = hapax / type_count if type_count > 0 else 0.0
+    hapax_ratio = hapax / type_count if type_count else 0.0
 
-    # Stopword proportion (optional)
-    stopword_ratio = None
-    if stopwords:
-        sw = sum(1 for t in tokens if t.lower() in stopwords)
-        stopword_ratio = sw / token_count if token_count > 0 else 0.0
+    # Sentence metrics
+    sentences = _sentence_split(text)
+    sentence_count = len(sentences)
 
-    # Lexical density (rough heuristic): proportion of tokens not in stopwords
-    lexical_density = None
-    if stopwords:
-        content = sum(1 for t in tokens if t.lower() not in stopwords)
-        lexical_density = content / token_count if token_count > 0 else 0.0
-
-    # Average sentence length
-    sentences = [s.strip() for s in _sentence_split(text) if s.strip()]
-    if sentences:
-        avg_sentence_length = sum(len(_tokenise(s)) for s in sentences) / len(sentences)
+    if sentence_count:
+        avg_sentence_length = sum(len(_tokenise(s)) for s in sentences) / sentence_count
     else:
         avg_sentence_length = 0.0
+
+    # Stopwords
+    stopword_ratio = None
+    stopword_count = 0
+    content_word_count = 0
+
+    if stopwords:
+        stopword_count = sum(1 for t in tokens if t.lower() in stopwords)
+        content_word_count = token_count - stopword_count
+        stopword_ratio = stopword_count / token_count if token_count else None
+        lexical_density = content_word_count / token_count if token_count else None
+    else:
+        lexical_density = None
 
     return {
         "token_count": token_count,
@@ -111,117 +98,96 @@ def compute_document_statistics(text, stopwords=None):
         "hapax_ratio": hapax_ratio,
         "stopword_ratio": stopword_ratio,
         "lexical_density": lexical_density,
+        "sentence_count": sentence_count,
         "avg_sentence_length": avg_sentence_length,
+        "stopword_count": stopword_count,
+        "content_word_count": content_word_count,
+        "freq_dict": dict(freq),   # needed for global aggregation
     }
 
 
 # ---------------------------------------------------------------------------
-# CORPUS-LEVEL STATISTICS
+# GLOBAL (CORPUS-LEVEL) STATISTICS
 # ---------------------------------------------------------------------------
 
-def compute_corpus_statistics(stat_rows):
+def compute_global_statistics(doc_stats):
     """
-    Compute simple aggregated corpus-level statistics.
+    Compute full corpus-level statistics by aggregating document-level stats.
 
-    Parameters:
-        stat_rows (list[dict]): List of document statistics.
-
-    Returns:
-        dict: aggregated means for numeric fields.
+    This is NOT the mean of document stats:
+    - tokens → sum
+    - types → union
+    - hapax → count types with freq=1 globally
+    - sentence count → sum
+    - average sentence length → tokens / sentences
     """
-    if not stat_rows:
-        return {}
 
-    numeric_fields = [
-        "token_count", "type_count", "ttr",
-        "hapax_ratio", "stopword_ratio",
-        "lexical_density", "avg_sentence_length",
-    ]
+    # Total tokens
+    total_tokens = sum(d["token_count"] for d in doc_stats)
 
-    agg = {}
+    # Merge frequencies
+    global_freq = {}
+    for d in doc_stats:
+        for tok, f in d["freq_dict"].items():
+            global_freq[tok] = global_freq.get(tok, 0) + f
 
-    for field in numeric_fields:
-        values = [row[field] for row in stat_rows if row[field] is not None]
-        if values:
-            agg[field] = sum(values) / len(values)
-        else:
-            agg[field] = None
+    total_types = len(global_freq)
+    global_hapax = sum(1 for t, f in global_freq.items() if f == 1)
 
-    return agg
+    # Stopwords
+    total_stopwords = sum(d["stopword_count"] for d in doc_stats)
+    total_content = sum(d["content_word_count"] for d in doc_stats)
 
-
-# ---------------------------------------------------------------------------
-# MAIN PUBLIC FUNCTION: CORPUS STATISTICS
-# ---------------------------------------------------------------------------
-
-def corpus_statistics(input_source, output_csv="corpus_stats.csv",
-                      stoplist=None, include_corpus_level=True):
-    """
-    Compute statistics for all documents in a folder OR list of texts.
-
-    Parameters:
-        input_source (str or list[str]):
-            - Folder path with TXT files, OR
-            - List of strings (documents).
-        output_csv (str): CSV path to save statistics.
-        stoplist (str or list or None): Optional stoplist for lexical metrics.
-        include_corpus_level (bool): Whether to compute aggregate corpus stats.
-
-    Returns:
-        dict: {
-            "documents": list of document-level stats,
-            "corpus": aggregated stats (if enabled)
-        }
-    """
-    # Load stopwords if provided
-    stopwords = load_stoplist(stoplist) if stoplist else None
-
-    documents = []
-
-    # Case 1: Folder with TXT files
-    if isinstance(input_source, str):
-        folder = input_source
-        if not os.path.isdir(folder):
-            raise FileNotFoundError(f"Directory not found: {folder}")
-
-        for fname in sorted(os.listdir(folder)):
-            if fname.lower().endswith(".txt"):
-                fpath = os.path.join(folder, fname)
-                with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
-                    text = f.read()
-
-                stats = compute_document_statistics(text, stopwords)
-                stats["filename"] = fname
-                documents.append(stats)
-
-    # Case 2: List of texts
-    elif isinstance(input_source, list):
-        for i, text in enumerate(input_source):
-            stats = compute_document_statistics(text, stopwords)
-            stats["filename"] = f"doc_{i+1}"
-            documents.append(stats)
-
-    else:
-        raise TypeError("input_source must be a folder path or a list of strings.")
-
-    # Corpus-level aggregation
-    corpus_stats = compute_corpus_statistics(documents) if include_corpus_level else {}
-
-    # Write CSV ----------------------------------------------------------------
-    header = [
-        "filename", "token_count", "type_count", "ttr",
-        "hapax_ratio", "stopword_ratio", "lexical_density",
-        "avg_sentence_length"
-    ]
-
-    with open(output_csv, "w", newline="", encoding="utf-8") as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(header)
-
-        for row in documents:
-            writer.writerow([row.get(col, "") for col in header])
+    # Sentences
+    total_sentences = sum(d["sentence_count"] for d in doc_stats)
 
     return {
-        "documents": documents,
-        "corpus": corpus_stats,
+        "filename": "__CORPUS_GLOBAL__",
+        "token_count": total_tokens,
+        "type_count": total_types,
+        "ttr": total_types / total_tokens if total_tokens else 0.0,
+        "hapax_ratio": global_hapax / total_types if total_types else 0.0,
+        "stopword_ratio": total_stopwords / total_tokens if total_tokens else None,
+        "lexical_density": total_content / total_tokens if total_tokens else None,
+        "avg_sentence_length": total_tokens / total_sentences if total_sentences else None,
     }
+
+
+# ---------------------------------------------------------------------------
+# MAIN PUBLIC API
+# ---------------------------------------------------------------------------
+
+def corpus_statistics(input_folder, output_csv=None, stoplist=None):
+    """
+    Compute document-level statistics for all TXT files in a folder.
+
+    Returns:
+        list[dict] with per-document stats.
+    """
+
+    stopwords = load_stoplist(stoplist) if stoplist else None
+    stats_list = []
+
+    for fname in sorted(os.listdir(input_folder)):
+        if fname.lower().endswith(".txt"):
+            fpath = os.path.join(input_folder, fname)
+            with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                text = f.read()
+
+            stats = compute_document_statistics(text, stopwords)
+            stats["filename"] = fname
+            stats_list.append(stats)
+
+    if output_csv:
+        header = [
+            "filename", "token_count", "type_count", "ttr",
+            "hapax_ratio", "stopword_ratio", "lexical_density",
+            "avg_sentence_length"
+        ]
+        with open(output_csv, "w", newline="", encoding="utf-8") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(header)
+            for row in stats_list:
+                writer.writerow([row.get(col, "") for col in header])
+
+    return stats_list
