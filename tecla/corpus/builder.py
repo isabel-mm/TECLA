@@ -50,39 +50,9 @@ def build_corpus(
     """
     Build a corpus from a folder of PDF files.
 
-    Parameters
-    ----------
-    input_folder : str
-        Directory containing PDF files.
-
-    out_folder : str
-        Output folder containing:
-            out_folder/raw/
-            out_folder/clean/  (if clean=True)
-
-    metadata_file : str
-        Where to write metadata.csv.
-
-    clean : bool
-        Whether to generate a cleaned version of each text.
-
-    clean_params : dict or None
-        Dictionary of cleaning parameters for clean_text().
-        Example:
-            {
-                "structure": True,
-                "remove_stopwords_flag": True,
-                "extra_stoplist": ["et", "al"],
-                "lemmatize_flag": False,
-                "remove_bibliography_flag": True,
-                "language": "es"
-            }
-
-    compute_stats : bool
-        Whether to compute descriptive statistics.
-
-    stats_output : str
-        CSV where document + global stats will be saved.
+    If input_folder does not exist, TECLA creates it automatically
+    and stops the pipeline with a user-friendly message.
+    If the folder exists but is empty, TECLA informs the user as well.
 
     Returns
     -------
@@ -91,7 +61,24 @@ def build_corpus(
         "statistics": list of stats rows (if compute_stats=True)
     """
 
+    # ----------------------------------------------------------------------
+    # 0. Ensure input_folder exists
+    # ----------------------------------------------------------------------
+    if not os.path.isdir(input_folder):
+        os.makedirs(input_folder, exist_ok=True)
+        print(
+            f"📂 The folder '{input_folder}' did not exist and has been created.\n"
+            f"➡️  Add PDF files to this folder and run build_corpus() again."
+        )
+        return {
+            "metadata": [],
+            "statistics": None,
+            "message": f"Input folder '{input_folder}' created — no PDFs found yet."
+        }
+
+    # ----------------------------------------------------------------------
     # Default cleaning params
+    # ----------------------------------------------------------------------
     if clean_params is None:
         clean_params = {}
 
@@ -105,8 +92,17 @@ def build_corpus(
     # Locate PDFs
     # ----------------------------------------------------------------------
     pdf_paths = list_pdfs(input_folder)
+
     if not pdf_paths:
-        raise FileNotFoundError(f"No PDF files found in: {input_folder}")
+        print(
+            f"⚠️ No PDF files found in '{input_folder}'.\n"
+            f"➡️  Add PDFs to the folder and re-run build_corpus()."
+        )
+        return {
+            "metadata": [],
+            "statistics": None,
+            "message": f"No PDFs found in '{input_folder}'."
+        }
 
     metadata_rows = []
 
@@ -165,22 +161,22 @@ def build_corpus(
 
     if compute_stats:
 
-        # If cleaning enabled → statistics are computed from cleaned texts
+        # If cleaning enabled → statistics computed from cleaned texts
         folder_for_stats = clean_dir if clean else raw_dir
 
-        # Compute document-level stats
+        # Document-level statistics
         doc_stats = corpus_statistics(
             input_folder=folder_for_stats,
             language=clean_params.get("language", "en"),
             stoplist=clean_params.get("stoplist"),
             extra_stoplist=clean_params.get("extra_stoplist"),
-            output_csv=None  # we write a custom CSV below
+            output_csv=None
         )
 
-        # Compute global stats (true corpus-level)
+        # Corpus-level global statistics
         global_stats = compute_global_statistics(doc_stats)
 
-        # Append global stats row
+        # Append global row
         doc_stats.append(global_stats)
 
         # Write CSV
@@ -194,14 +190,13 @@ def build_corpus(
             writer.writeheader()
 
             for row in doc_stats:
-                writer.writerow({
-                    h: row.get(h, "")
-                    for h in header
-                })
+                writer.writerow({h: row.get(h, "") for h in header})
 
         stats = doc_stats
 
+    # ----------------------------------------------------------------------
     # Return structured output
+    # ----------------------------------------------------------------------
     return {
         "metadata": metadata_rows,
         "statistics": stats
