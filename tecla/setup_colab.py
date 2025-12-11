@@ -1,15 +1,13 @@
 """
-Utility to auto-configure TECLA inside Google Colab.
+Full plug-and-play setup utility for TECLA in Google Colab.
 
-This script:
-- Ensures TECLA is importable by adding the repo path to sys.path
-- Clears Colab's aggressive module caching for the "tecla" namespace
-- Installs Python dependencies (spacy, nltk, pdfminer, etc.)
-- Downloads necessary spaCy models automatically
-- Downloads NLTK resources (stopwords, punkt)
-- Confirms TECLA loads successfully
-
-This gives TECLA true plug-and-play behaviour in Google Colab.
+Automatically:
+- Adds TECLA to sys.path
+- Installs required Python packages
+- Downloads spaCy models
+- Downloads NLTK stopwords and punkt
+- Cleans cached modules
+- Confirms TECLA importability
 """
 
 import sys
@@ -19,26 +17,26 @@ import subprocess
 
 
 # ---------------------------------------------------------------------
-# Dependency installer
+# Helper: pip installer
 # ---------------------------------------------------------------------
 
 def _pip_install(package):
-    """Install a package via pip inside Colab."""
     try:
-        print(f"📦 Installing: {package} …")
         subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+        print(f"📦 Installed: {package}")
     except Exception as e:
         print(f"⚠️ Could not install {package}: {e}")
 
 
 def _install_dependencies():
-    """Install core libraries needed by TECLA."""
+    """Install all core dependencies for TECLA."""
     deps = [
         "pdfminer.six",
         "spacy",
         "nltk",
         "langid",
     ]
+    print("📌 Installing dependencies...")
     for pkg in deps:
         _pip_install(pkg)
 
@@ -57,92 +55,76 @@ SPACY_MODELS = {
 }
 
 def _ensure_spacy_models():
-    """Download spaCy models if missing."""
+    print("📌 Ensuring spaCy models...")
     import spacy
     import spacy.cli
 
     for lang, model in SPACY_MODELS.items():
         try:
             spacy.load(model)
-            print(f"🔄 spaCy model already present: {model}")
-        except Exception:
-            print(f"⬇️ Downloading spaCy model: {model}")
+            print(f"   🔄 Model already present: {model}")
+        except OSError:
+            print(f"   ⬇️ Downloading model: {model}")
             try:
                 spacy.cli.download(model)
-                print(f"   ✓ {model} installed")
+                print(f"   ✓ Installed: {model}")
             except Exception as e:
-                print(f"   ⚠️ Failed to download {model}: {e}")
+                print(f"   ⚠️ Could not download {model}. Using blank fallback.")
 
 
 # ---------------------------------------------------------------------
-# NLTK resource installer
+# NLTK resources installer
 # ---------------------------------------------------------------------
 
 def _download_nltk_resources():
-    """Download NLTK stopwords and punkt."""
+    """Install stopwords + punkt for NLTK automatically."""
+    print("📌 Ensuring NLTK resources...")
     try:
         import nltk
-        print("⬇️ Downloading NLTK stopwords & punkt...")
-        nltk.download("stopwords")
-        nltk.download("punkt")
+        nltk.download("stopwords", quiet=True)
+        nltk.download("punkt", quiet=True)
         print("   ✓ NLTK resources installed")
     except Exception as e:
-        print(f"⚠️ Could not download NLTK resources: {e}")
+        print(f"   ⚠️ Could not download NLTK data: {e}")
+        print("   → TECLA will use only spaCy stopwords.")
 
 
 # ---------------------------------------------------------------------
-# Main TECLA setup
+# MAIN SETUP
 # ---------------------------------------------------------------------
 
 def setup_tecla(path="/content/TECLA_v2"):
     """
-    Configure TECLA after git clone in Colab.
-
-    Steps:
-    1. Add TECLA to sys.path
-    2. Install dependencies
-    3. Download spaCy + NLTK resources
-    4. Clear Colab cached modules
-    5. Import TECLA to confirm installation
-
-    Returns:
-        True if setup completed successfully.
+    Run full TECLA setup automatically in Google Colab.
     """
-    print("🚀 Setting up TECLA in Google Colab...")
 
-    # 1. Ensure folder exists
+    print("🚀 Setting up TECLA...")
+
     if not os.path.isdir(path):
         raise ValueError(f"Directory not found: {path}")
 
-    # 2. Add to sys.path
+    # Add repo to path
     if path not in sys.path:
         sys.path.append(path)
-        print(f"📌 Added TECLA path: {path}")
+        print(f"📂 Added TECLA path: {path}")
 
-    # 3. Install required packages
+    # Install deps & resources
     _install_dependencies()
-
-    # 4. Download spaCy models
     _ensure_spacy_models()
-
-    # 5. Download NLTK data
     _download_nltk_resources()
 
-    # 6. Clear cached "tecla" modules
-    removed = [
-        m for m in list(sys.modules.keys())
-        if m.startswith("tecla")
-    ]
+    # Clear cached modules
+    removed = [m for m in sys.modules if m.startswith("tecla")]
     for m in removed:
         del sys.modules[m]
-    print(f"🧹 Cleared {len(removed)} cached TECLA modules")
+    print(f"🧹 Cleared {len(removed)} cached modules")
 
-    # 7. Validate import works
+    # Validate import
     try:
         importlib.import_module("tecla")
-        print("✅ TECLA imported successfully!")
+        print("✅ TECLA successfully imported!")
     except Exception as e:
         raise ImportError(f"❌ TECLA could not be imported: {e}")
 
-    print("🎉 TECLA setup completed")
+    print("🎉 TECLA setup completed — ready to use!")
     return True
