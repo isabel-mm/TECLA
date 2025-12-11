@@ -23,50 +23,77 @@ def infer_metadata(filename):
     """
     Infer metadata (author, year, title, text_type) from a PDF filename.
 
-    Expected patterns:
-        AUTHOR_YYYY_TITLE.pdf
-        AUTHOR-YYYY-TITLE.pdf
-        TITLE_YYYY.pdf
-        TITLE.pdf
+    Supports two layers:
+    1. TECLA-pattern files:  <Author, N.>_<YYYY>_<title>.pdf
+    2. General heuristic fallback (original implementation)
 
     Parameters:
-        filename (str): Name of the PDF file or full path.
+        filename (str): PDF name or full path.
 
     Returns:
         dict: {
             'author': str or None,
             'year': int or None,
             'title': str or None,
-            'text_type': str
+            'text_type': 'unknown'
         }
     """
-    # Extract just the name without extension
+
     base = os.path.basename(filename)
     name = os.path.splitext(base)[0]
 
-    # Replace separators with spaces for easier tokenization
-    clean_name = name.replace("_", " ").replace("-", " ").strip()
+    # ----------------------------------------------------------------------
+    # 1) TECLA naming convention:
+    #    Author, N._YYYY_titlewords
+    # ----------------------------------------------------------------------
+    parts = name.split("_")
 
+    if len(parts) >= 3:
+        possible_author = parts[0].strip()
+        possible_year = parts[1].strip()
+
+        # Author should contain a comma (Surname, Initial)
+        # Year should match YYYY
+        if "," in possible_author and re.fullmatch(r"(19|20)\d{2}", possible_year):
+
+            author = possible_author
+            year = int(possible_year)
+
+            # Title = everything after the year
+            title_parts = parts[2:]
+            title = " ".join(title_parts)
+            title = title.replace("_", " ").strip()
+            title = re.sub(r"\s+", " ", title)
+
+            return {
+                "author": author,
+                "year": year,
+                "title": title,
+                "text_type": "unknown",
+            }
+
+    # ----------------------------------------------------------------------
+    # 2) FALLBACK: general heuristic from original implementation
+    # ----------------------------------------------------------------------
+
+    clean_name = name.replace("_", " ").replace("-", " ").strip()
     tokens = clean_name.split()
 
-    # --- Detect year ---------------------------------------------------------
+    # --- Detect year -----------------------------------------------------
     year = None
     for t in tokens:
         if YEAR_PATTERN.fullmatch(t):
             year = int(t)
             break
 
-    # --- Detect author -------------------------------------------------------
-    # Heuristic: the token(s) before the year (if any) are the author
+    # --- Detect author ---------------------------------------------------
     author = None
     if year is not None:
         idx = tokens.index(str(year))
         if idx > 0:
-            # All tokens before the year treated as author phrase
             author = " ".join(tokens[:idx])
     else:
-        # If no year found, attempt to infer author by capitalization pattern
-        # e.g. "Smith" or "Garcia Lopez"
+        # Capitalisation heuristic
         possible_author = []
         for t in tokens:
             if t[0].isupper():
@@ -76,35 +103,27 @@ def infer_metadata(filename):
         if possible_author:
             author = " ".join(possible_author)
 
-    # --- Detect title --------------------------------------------------------
+    # --- Detect title ----------------------------------------------------
     title = None
     if year is not None:
         idx = tokens.index(str(year))
         if idx < len(tokens) - 1:
             title = " ".join(tokens[idx + 1:])
     else:
-        # Title is everything after author block
         if author:
             author_tokens = author.split()
             rest = tokens[len(author_tokens):]
             if rest:
                 title = " ".join(rest)
         else:
-            # No clear author-year structure: full name is the title
             title = clean_name
 
-    # Clean title formatting
     if title:
         title = title.replace(".", " ").strip()
-
-    # --- Infer text type (very rough heuristic) -------------------------------
-    # We will refine text_type later once page count is available.
-    # For now: "unknown".
-    text_type = "unknown"
 
     return {
         "author": author,
         "year": year,
         "title": title,
-        "text_type": text_type,
+        "text_type": "unknown",
     }
