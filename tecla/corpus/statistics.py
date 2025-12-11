@@ -100,7 +100,7 @@ def compute_document_statistics(text, stopwords=None):
         "avg_sentence_length": avg_sentence_length,
         "stopword_count": stopword_count,
         "content_word_count": content_word_count,
-        "freq_dict": dict(freq),  # needed for global aggregation
+        #"freq_dict": dict(freq),
     }
 
 
