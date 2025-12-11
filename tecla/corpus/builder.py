@@ -1,17 +1,17 @@
 """
 Main corpus-building pipeline for the TECLA corpus module.
 
-This module orchestrates:
-- PDF discovery,
-- metadata inference,
-- PDF-to-text conversion,
-- optional cleaning (structural, linguistic, bibliography removal, etc.),
-- writing raw and cleaned TXT files,
-- metadata CSV generation,
-- optional descriptive statistics.
+This module performs the sequential construction of a corpus from PDFs:
 
-The design prioritises transparency, reproducibility, and simplicity for users
-with little or no programming background.
+1. Discover PDF files.
+2. Infer metadata from filenames.
+3. Convert PDF → raw text.
+4. Optional cleaning (structure, stopwords, lemmatisation, bibliography removal).
+5. Write raw and cleaned TXT files.
+6. Generate metadata.csv.
+7. Optional descriptive statistics (document-level + global-level).
+
+The goal is transparency, reproducibility and simplicity.
 """
 
 import os
@@ -21,21 +21,15 @@ from .utils import list_pdfs, ensure_folder
 from .metadata import infer_metadata
 from .pdf_to_txt import pdf_to_text
 from .cleaning import clean_text
-from .statistics import corpus_statistics
+from .statistics import corpus_statistics, compute_global_statistics
 
 
 # ---------------------------------------------------------------------------
-# HELPER: WRITE TXT FILES
+# INTERNAL: WRITE TXT
 # ---------------------------------------------------------------------------
 
 def _write_txt(path, text):
-    """
-    Write text to a UTF-8 TXT file.
-
-    Parameters:
-        path (str)
-        text (str)
-    """
+    """Write a UTF-8 text file."""
     with open(path, "w", encoding="utf-8") as f:
         f.write(text)
 
@@ -56,58 +50,86 @@ def build_corpus(
     """
     Build a corpus from a folder of PDF files.
 
-    Parameters:
-        input_folder (str): Directory containing PDFs.
-        out_folder (str): Folder where TXT files will be saved.
-                          Structure:
-                            out_folder/raw/
-                            out_folder/clean/ (if clean=True)
-        metadata_file (str): Path to metadata CSV.
-        clean (bool): Whether to apply text cleaning.
-        clean_params (dict or None): Parameters for cleaning.
-        compute_stats (bool): Whether to compute corpus-level statistics.
-        stats_output (str): Path to save statistics CSV.
+    Parameters
+    ----------
+    input_folder : str
+        Directory containing PDF files.
 
-    Returns:
-        dict: {
-            "metadata": list of metadata dicts,
-            "statistics": corpus_stats or None
-        }
+    out_folder : str
+        Output folder containing:
+            out_folder/raw/
+            out_folder/clean/  (if clean=True)
+
+    metadata_file : str
+        Where to write metadata.csv.
+
+    clean : bool
+        Whether to generate a cleaned version of each text.
+
+    clean_params : dict or None
+        Dictionary of cleaning parameters for clean_text().
+        Example:
+            {
+                "structure": True,
+                "remove_stopwords_flag": True,
+                "extra_stoplist": ["et", "al"],
+                "lemmatize_flag": False,
+                "remove_bibliography_flag": True,
+                "language": "es"
+            }
+
+    compute_stats : bool
+        Whether to compute descriptive statistics.
+
+    stats_output : str
+        CSV where document + global stats will be saved.
+
+    Returns
+    -------
+    dict with keys:
+        "metadata": list of metadata dicts
+        "statistics": list of stats rows (if compute_stats=True)
     """
 
-    # defaults to avoid None checks
+    # Default cleaning params
     if clean_params is None:
         clean_params = {}
 
-    # Ensure output directories -------------------------------------------------
+    # ----------------------------------------------------------------------
+    # Ensure output directories
+    # ----------------------------------------------------------------------
     raw_dir = ensure_folder(os.path.join(out_folder, "raw"))
     clean_dir = ensure_folder(os.path.join(out_folder, "clean")) if clean else None
 
-    # Find PDFs -----------------------------------------------------------------
+    # ----------------------------------------------------------------------
+    # Locate PDFs
+    # ----------------------------------------------------------------------
     pdf_paths = list_pdfs(input_folder)
     if not pdf_paths:
         raise FileNotFoundError(f"No PDF files found in: {input_folder}")
 
     metadata_rows = []
 
-    # Process each PDF ----------------------------------------------------------
+    # ----------------------------------------------------------------------
+    # PROCESS EACH PDF
+    # ----------------------------------------------------------------------
     for pdf_path in pdf_paths:
         filename = os.path.basename(pdf_path)
         fname_no_ext = os.path.splitext(filename)[0]
 
-        # 1. Metadata inference
+        # Metadata inference
         meta = infer_metadata(filename)
         meta["pdf_path"] = pdf_path
 
-        # 2. PDF → text
+        # PDF → raw text
         raw_text = pdf_to_text(pdf_path)
 
-        # 3. Save raw text
+        # Save raw text
         raw_txt_path = os.path.join(raw_dir, f"{fname_no_ext}.txt")
         _write_txt(raw_txt_path, raw_text)
         meta["raw_txt_path"] = raw_txt_path
 
-        # 4. Clean text if requested
+        # Cleaned version
         if clean:
             cleaned = clean_text(raw_text, **clean_params)
             clean_txt_path = os.path.join(clean_dir, f"{fname_no_ext}.txt")
@@ -116,20 +138,18 @@ def build_corpus(
         else:
             meta["clean_txt_path"] = None
 
+        # Normalize filename field
+        meta["file"] = filename
+
         metadata_rows.append(meta)
 
-    # ---------------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     # WRITE METADATA CSV
-    # ---------------------------------------------------------------------------
-
+    # ----------------------------------------------------------------------
     metadata_fields = [
         "file", "author", "title", "year", "text_type",
         "pdf_path", "raw_txt_path", "clean_txt_path"
     ]
-
-    # Normalise field names
-    for m in metadata_rows:
-        m["file"] = os.path.basename(m["pdf_path"])
 
     with open(metadata_file, "w", newline="", encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile)
@@ -138,32 +158,50 @@ def build_corpus(
         for row in metadata_rows:
             writer.writerow([row.get(f, "") for f in metadata_fields])
 
-    # ---------------------------------------------------------------------------
-    # OPTIONAL STATISTICS
-    # ---------------------------------------------------------------------------
-
+    # ----------------------------------------------------------------------
+    # OPTIONAL: STATISTICS
+    # ----------------------------------------------------------------------
     stats = None
+
     if compute_stats:
+
+        # If cleaning enabled → statistics are computed from cleaned texts
         folder_for_stats = clean_dir if clean else raw_dir
 
-        from .statistics import corpus_statistics, compute_global_statistics
+        # Compute document-level stats
+        doc_stats = corpus_statistics(
+            input_folder=folder_for_stats,
+            language=clean_params.get("language", "en"),
+            stoplist=clean_params.get("stoplist"),
+            extra_stoplist=clean_params.get("extra_stoplist"),
+            output_csv=None  # we write a custom CSV below
+        )
 
-        # Document-level statistics
-        stats_list = corpus_statistics(folder_for_stats, output_csv=None)
+        # Compute global stats (true corpus-level)
+        global_stats = compute_global_statistics(doc_stats)
 
-        # Global corpus statistics
-        global_stats = compute_global_statistics(stats_list)
-        stats_list.append(global_stats)
+        # Append global stats row
+        doc_stats.append(global_stats)
 
-        # Save final CSV with all statistics
+        # Write CSV
         with open(stats_output, "w", newline="", encoding="utf-8") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=list(stats_list[0].keys()))
+            header = [
+                "filename", "token_count", "type_count", "ttr",
+                "hapax_ratio", "stopword_ratio", "lexical_density",
+                "sentence_count", "avg_sentence_length"
+            ]
+            writer = csv.DictWriter(csvfile, fieldnames=header)
             writer.writeheader()
-            for row in stats_list:
-                writer.writerow(row)
 
-        stats = stats_list
+            for row in doc_stats:
+                writer.writerow({
+                    h: row.get(h, "")
+                    for h in header
+                })
 
+        stats = doc_stats
+
+    # Return structured output
     return {
         "metadata": metadata_rows,
         "statistics": stats
