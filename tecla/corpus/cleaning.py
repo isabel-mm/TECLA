@@ -4,8 +4,8 @@ Text cleaning and linguistic normalisation utilities for the TECLA corpus module
 This module offers:
 - structural cleaning (optional),
 - bibliography removal based on language (optional),
-- stopword removal (optional),
-- user-defined stoplist filtering (optional),
+- stopword removal (optional, automatic or user-provided),
+- user-defined additional stoplist filtering (optional),
 - lemmatisation via spaCy (optional).
 
 All operations are explicit: nothing is applied automatically.
@@ -98,6 +98,64 @@ def _get_spacy_model(language):
 
 
 # ---------------------------------------------------------------------------
+# COMBINED STOPWORD SYSTEM (spaCy + NLTK + optional user additions)
+# ---------------------------------------------------------------------------
+
+def get_language_stopwords(language, extra_stoplist=None):
+    """
+    Return a combined stopword list from spaCy + NLTK + optional user extra list.
+    """
+    lang = language.lower()
+    combined = set()
+
+    # --- spaCy stopwords -----------------------------------------------------
+    try:
+        nlp = _get_spacy_model(lang)
+        combined |= {w.lower() for w in nlp.Defaults.stop_words}
+    except Exception:
+        print(f"⚠️ Could not load spaCy stopwords for '{lang}'.")
+
+    # --- NLTK stopwords ------------------------------------------------------
+    try:
+        import nltk
+        from nltk.corpus import stopwords
+
+        try:
+            stopwords.words(lang)
+        except LookupError:
+            nltk.download("stopwords")
+
+        nltk_map = {
+            "en": "english",
+            "es": "spanish",
+            "fr": "french",
+            "de": "german",
+            "it": "italian",
+            "pt": "portuguese",
+        }
+
+        if lang in nltk_map:
+            combined |= {w.lower() for w in stopwords.words(nltk_map[lang])}
+
+    except Exception:
+        print(f"⚠️ Could not load NLTK stopwords for '{lang}'.")
+
+    # --- user extra stoplist --------------------------------------------------
+    if extra_stoplist:
+        if isinstance(extra_stoplist, list):
+            combined |= {w.lower() for w in extra_stoplist}
+        elif isinstance(extra_stoplist, str):
+            try:
+                extra = load_stoplist(extra_stoplist)
+                combined |= {w.lower() for w in extra}
+            except Exception:
+                print(f"⚠️ Could not load extra stoplist file '{extra_stoplist}'.")
+
+    return combined
+
+
+
+# ---------------------------------------------------------------------------
 # STRUCTURAL CLEANING
 # ---------------------------------------------------------------------------
 
@@ -136,6 +194,7 @@ def remove_numeric_only_lines(text):
         if not re.fullmatch(pattern, line)
     ]
     return "\n".join(filtered)
+
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +241,7 @@ def remove_bibliography_en(text):
         r'\[\d+\]', r'\(\d{4}\)', r'https?://', r'\d+\.\s'
     ]
     return _remove_bibliography_generic(text, section_titles, reference_patterns)
+
 
 
 # --- German -----------------------------------------------------------------
@@ -237,6 +297,7 @@ def remove_bibliography(text, language="en"):
     return text
 
 
+
 # ---------------------------------------------------------------------------
 # STOPWORDS, USER STOPLISTS, LEMMATISATION
 # ---------------------------------------------------------------------------
@@ -266,6 +327,7 @@ def lemmatize_text(text, language="en"):
     return " ".join(lemmas)
 
 
+
 # ---------------------------------------------------------------------------
 # MASTER CLEANING FUNCTION
 # ---------------------------------------------------------------------------
@@ -275,6 +337,7 @@ def clean_text(
     structure=False,
     remove_stopwords_flag=False,
     stoplist=None,
+    extra_stoplist=None,
     lemmatize_flag=False,
     remove_bibliography_flag=False,
     language="en",
@@ -294,16 +357,24 @@ def clean_text(
     if structure:
         cleaned = clean_structure(cleaned)
 
-    # Stopword removal
+    # Stopword removal (spaCy + NLTK + extra)
     if remove_stopwords_flag:
-        nlp = _get_spacy_model(language)
-        default_stopwords = {w.lower() for w in nlp.Defaults.stop_words}
-        cleaned = remove_stopwords(cleaned, default_stopwords)
+        default_stopwords = get_language_stopwords(language, extra_stoplist)
+        if default_stopwords:
+            cleaned = remove_stopwords(cleaned, default_stopwords)
+        else:
+            print(f"⚠️ No stopwords available for language '{language}'.")
 
-    # User stoplist
-    if stoplist:
-        user_stop = load_stoplist(stoplist)
-        cleaned = apply_user_stoplist(cleaned, user_stop)
+    # User stoplist (replaces removal above only for user list)
+    if isinstance(stoplist, str) and stoplist.strip():
+        try:
+            user_stop = load_stoplist(stoplist)
+            cleaned = apply_user_stoplist(cleaned, user_stop)
+        except Exception:
+            print(f"⚠️ Invalid stoplist path '{stoplist}'. Skipping.")
+
+    elif isinstance(stoplist, list):
+        cleaned = apply_user_stoplist(cleaned, stoplist)
 
     # Lemmatization
     if lemmatize_flag:
