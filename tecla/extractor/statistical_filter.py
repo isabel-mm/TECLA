@@ -14,6 +14,7 @@ through a linguistic filter.
 from collections import defaultdict
 from math import log2
 from typing import List, Dict, Any, Optional
+import math
 
 
 # ---------------------------------------------------------------------
@@ -25,16 +26,6 @@ def compute_frequencies(
 ) -> Dict[str, Dict[str, int]]:
     """
     Compute term frequency and document frequency.
-
-    Returns
-    -------
-    dict
-        {
-            term_lemma: {
-                "frequency": int,
-                "doc_frequency": int
-            }
-        }
     """
     freq = defaultdict(int)
     doc_freq = defaultdict(set)
@@ -65,14 +56,6 @@ def compute_tfidf(
 ) -> Dict[str, float]:
     """
     Compute TF-IDF scores for candidate terms.
-
-    TF is approximated by raw frequency.
-    IDF uses log smoothing.
-
-    Returns
-    -------
-    dict
-        { term_lemma: tfidf_score }
     """
     tfidf = {}
 
@@ -95,22 +78,12 @@ def compute_cvalue(
 ) -> Dict[str, float]:
     """
     Compute C-value scores for candidate terms.
-
-    Implements the classical formulation by Frantzi et al. (2000).
-
-    Returns
-    -------
-    dict
-        { term_lemma: cvalue_score }
     """
 
     terms = list(term_stats.keys())
     cvalue = {}
 
-    # Precompute term lengths
     term_lengths = {t: len(t.split()) for t in terms}
-
-    # Identify nested terms
     nested_in = defaultdict(list)
 
     for t1 in terms:
@@ -121,7 +94,6 @@ def compute_cvalue(
     for term in terms:
         f = term_stats[term]["frequency"]
         length = term_lengths[term]
-
         nested_terms = nested_in.get(term, [])
 
         if not nested_terms:
@@ -157,6 +129,68 @@ def min_max_normalise(scores: Dict[str, float]) -> Dict[str, float]:
 
 
 # ---------------------------------------------------------------------
+# Automatic weight estimation
+# ---------------------------------------------------------------------
+
+def compute_variance_weights(
+    tfidf_norm: Dict[str, float],
+    cvalue_norm: Dict[str, float]
+) -> Dict[str, float]:
+    """
+    Estimate weights proportionally to score variance.
+    """
+
+    def variance(values):
+        mean = sum(values) / len(values)
+        return sum((v - mean) ** 2 for v in values) / len(values)
+
+    v_tfidf = variance(list(tfidf_norm.values()))
+    v_cvalue = variance(list(cvalue_norm.values()))
+
+    total = v_tfidf + v_cvalue
+
+    if total == 0:
+        return {"tfidf": 0.5, "cvalue": 0.5}
+
+    return {
+        "tfidf": v_tfidf / total,
+        "cvalue": v_cvalue / total
+    }
+
+
+def compute_entropy_weights(
+    tfidf_norm: Dict[str, float],
+    cvalue_norm: Dict[str, float]
+) -> Dict[str, float]:
+    """
+    Estimate weights based on Shannon entropy.
+    """
+
+    def entropy(values):
+        eps = 1e-12
+        probs = [v + eps for v in values]
+        s = sum(probs)
+        probs = [v / s for v in probs]
+        return -sum(p * math.log2(p) for p in probs)
+
+    h_tfidf = entropy(list(tfidf_norm.values()))
+    h_cvalue = entropy(list(cvalue_norm.values()))
+
+    inv_tfidf = 1 - h_tfidf
+    inv_cvalue = 1 - h_cvalue
+
+    total = inv_tfidf + inv_cvalue
+
+    if total == 0:
+        return {"tfidf": 0.5, "cvalue": 0.5}
+
+    return {
+        "tfidf": inv_tfidf / total,
+        "cvalue": inv_cvalue / total
+    }
+
+
+# ---------------------------------------------------------------------
 # Composite index
 # ---------------------------------------------------------------------
 
@@ -168,19 +202,22 @@ def compute_terminologicity(
     """
     Compute composite terminologicity index.
 
-    Parameters
-    ----------
-    weights : dict, optional
-        {"tfidf": float, "cvalue": float}
-        If None, equal weights are assumed.
-
-    Returns
-    -------
-    dict
-        { term_lemma: terminologicity_score }
+    weights can be:
+    - dict: {"tfidf": x, "cvalue": y}
+    - "variance": automatic variance-based weighting
+    - "entropy": automatic entropy-based weighting
     """
+
     if weights is None:
         weights = {"tfidf": 0.5, "cvalue": 0.5}
+
+    if isinstance(weights, str):
+        if weights == "variance":
+            weights = compute_variance_weights(tfidf_norm, cvalue_norm)
+        elif weights == "entropy":
+            weights = compute_entropy_weights(tfidf_norm, cvalue_norm)
+        else:
+            raise ValueError(f"Unknown weight mode: {weights}")
 
     terminologicity = {}
 
@@ -205,11 +242,6 @@ def compute_statistics(
 ) -> List[Dict[str, Any]]:
     """
     Enrich candidates with statistical metrics and terminologicity index.
-
-    Returns
-    -------
-    list of dict
-        Candidates with added statistical information.
     """
 
     n_documents = len({doc["doc_id"] for doc in documents})
@@ -221,7 +253,11 @@ def compute_statistics(
     tfidf_norm = min_max_normalise(tfidf)
     cvalue_norm = min_max_normalise(cvalue)
 
-    terminologicity = compute_terminologicity(tfidf_norm, cvalue_norm, weights)
+    terminologicity = compute_terminologicity(
+        tfidf_norm,
+        cvalue_norm,
+        weights
+    )
 
     enriched = []
 
