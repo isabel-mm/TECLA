@@ -118,44 +118,42 @@ def _get_spacy_model(language):
 
     # Unsupported language -> blank model
     if not model_name:
-        print(f"⚠️ No spaCy model registered for '{language}'. Using blank model.")
-        nlp = spacy.blank(lang)
-        if "sentencizer" not in nlp.pipe_names:
-            nlp.add_pipe("sentencizer")
-        return nlp
+        if lang not in _SPACY_MODELS:
+            nlp = spacy.blank(lang)
+            if "sentencizer" not in nlp.pipe_names:
+                nlp.add_pipe("sentencizer")
+            _SPACY_MODELS[lang] = nlp
+            print(f"✅ spaCy blank model initialised for language '{language}'")
+        return _SPACY_MODELS[lang]
 
-    # Cached model?
+    # Cached model
     if model_name in _SPACY_MODELS:
-        print(f"🔄 Using cached spaCy model: {model_name}")
         return _SPACY_MODELS[model_name]
 
     # Try loading installed model
-    print(f"🔍 Attempting to load spaCy model: {model_name}")
     try:
         nlp = spacy.load(model_name)
-        print(f"✅ Loaded spaCy model: {model_name}")
         _SPACY_MODELS[model_name] = nlp
+        print(f"✅ spaCy model '{model_name}' loaded successfully")
         return nlp
 
     except OSError:
-        print(f"⚠️ spaCy model '{model_name}' not found. Attempting download…")
-
         try:
             spacy.cli.download(model_name)
-            print(f"🎉 Download successful: {model_name}")
             nlp = spacy.load(model_name)
             _SPACY_MODELS[model_name] = nlp
+            print(f"✅ spaCy model '{model_name}' downloaded and loaded successfully")
             return nlp
 
         except Exception:
-            print(
-                f"❌ Download failed for '{model_name}'. "
-                f"Using blank model for '{language}'."
-            )
             nlp = spacy.blank(lang)
             if "sentencizer" not in nlp.pipe_names:
                 nlp.add_pipe("sentencizer")
             _SPACY_MODELS[model_name] = nlp
+            print(
+                f"⚠️ spaCy model '{model_name}' unavailable. "
+                f"Using blank model for '{language}'."
+            )
             return nlp
 
 
