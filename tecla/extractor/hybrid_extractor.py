@@ -12,12 +12,17 @@ The output is a clean terminological inventory
 """
 
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple, Union
 import csv
 from collections import defaultdict
 
+from tqdm import tqdm
+
 from .linguistic_filter import extract_candidates
 from .statistical_filter import compute_statistics
+
+
+TermLength = Union[int, Tuple[int, Optional[int]]]
 
 
 class HybridTermExtractor:
@@ -52,6 +57,7 @@ class HybridTermExtractor:
         *,
         top_k: Optional[int] = None,
         percentile: Optional[float] = None,
+        term_length: Optional[TermLength] = None,
         output_path: Optional[Path] = None
     ) -> List[Dict[str, Any]]:
         """
@@ -79,21 +85,28 @@ class HybridTermExtractor:
         # 3. Consolidation (TERM LEVEL)
         consolidated = self._consolidate_terms(enriched)
 
-        # 4. Ranking
+        # 4. Optional filtering by term length
+        if term_length is not None:
+            consolidated = self._filter_by_length(consolidated, term_length)
+
+        if not consolidated:
+            return []
+
+        # 5. Ranking
         ranked = sorted(
             consolidated,
             key=lambda x: x["terminologicity"],
             reverse=True
         )
 
-        # 5. Optional filtering
+        # 6. Optional thresholds
         ranked = self._apply_thresholds(
             ranked,
             top_k=top_k,
             percentile=percentile
         )
 
-        # 6. Optional CSV export
+        # 7. Optional CSV export
         if output_path is not None:
             self._save_to_csv(ranked, output_path)
 
@@ -119,7 +132,11 @@ class HybridTermExtractor:
 
         terms = []
 
-        for lemma, occs in buckets.items():
+        for lemma, occs in tqdm(
+            buckets.items(),
+            desc="Consolidating terms",
+            unit="term"
+        ):
             term_surface = max(
                 (o["term"] for o in occs),
                 key=lambda x: len(x)
@@ -141,6 +158,28 @@ class HybridTermExtractor:
             })
 
         return terms
+
+    @staticmethod
+    def _filter_by_length(
+        terms: List[Dict[str, Any]],
+        term_length: TermLength
+    ) -> List[Dict[str, Any]]:
+        """
+        Filter terms by number of tokens.
+        """
+
+        if isinstance(term_length, int):
+            return [t for t in terms if t["length"] == term_length]
+
+        min_len, max_len = term_length
+
+        if max_len is None:
+            return [t for t in terms if t["length"] >= min_len]
+
+        return [
+            t for t in terms
+            if min_len <= t["length"] <= max_len
+        ]
 
     @staticmethod
     def _apply_thresholds(
@@ -196,7 +235,8 @@ class HybridTermExtractor:
         with open(output_path, "w", encoding="utf-8", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
-            for row in results:
+
+            for row in tqdm(results, desc="Writing CSV", unit="term"):
                 row = row.copy()
                 row["patterns"] = ";".join(row["patterns"])
                 writer.writerow(row)
