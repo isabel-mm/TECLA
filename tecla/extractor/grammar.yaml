@@ -1,0 +1,96 @@
+# TECLA – POS-based Terminological Grammar
+# This file defines language-specific POS patterns used for the
+# linguistic filtering stage in automatic term extraction.
+# The grammar formalises candidate structures (unithood),
+# not terminological validity (termhood).
+
+en:
+  - id: EN_NP_PRENOMINAL
+    description: Prenominal noun phrase with optional adjectival or nominal modifiers
+    pos_pattern: "(ADJ|NOUN|PROPN)* NOUN"
+    structure_type: nominal_phrase
+    notes: >
+      Common structure in English scientific terminology,
+      especially for multi-word terms.
+    examples:
+      - balanced corpus
+      - annotation scheme
+
+  - id: EN_NP_OF
+    description: Nominal construction with 'of'
+    pos_pattern: "NOUN+ of NOUN+"
+    structure_type: prepositional_np
+    notes: >
+      Productive construction for abstract and methodological concepts.
+    examples:
+      - part of speech
+      - analysis of variance
+
+  - id: EN_NOUN_SEQUENCE
+    description: Sequence of consecutive nouns
+    pos_pattern: "NOUN+"
+    structure_type: noun_sequence
+    notes: >
+      Includes both simple and extended noun compounds.
+    examples:
+      - keyword list
+      - corpus linguistics
+
+  - id: EN_ADJ_NOUN_NOUN
+    description: Adjective followed by two nouns
+    pos_pattern: "ADJ NOUN NOUN"
+    structure_type: extended_nominal
+    notes: >
+      Less frequent but attested in complex technical designations.
+    examples:
+      - distributional semantics model
+
+  - id: EN_NOUN_BIGRAM
+    description: Nominal bigram
+    pos_pattern: "NOUN NOUN"
+    structure_type: nominal_bigram
+    notes: >
+      Included explicitly to capture frequent two-word nominal terms.
+    examples:
+      - token frequency
+
+
+es:
+  - id: ES_NP_PRENOMINAL
+    description: Prenominal noun phrase with optional modifiers
+    pos_pattern: "(ADJ|NOUN|PROPN)* NOUN"
+    structure_type: nominal_phrase
+    notes: >
+      Includes adjectival and nominal modifiers preceding the head noun.
+    examples:
+      - patrón colocacional
+
+  - id: ES_NP_DE
+    description: Nominal construction with 'de'
+    pos_pattern: "NOUN+ de NOUN+"
+    structure_type: prepositional_np
+    notes: >
+      Highly productive structure in Spanish terminological phrases.
+    examples:
+      - esquema de anotación
+      - lista de palabras
+
+  - id: ES_NOUN_SEQUENCE
+    description: Sequence of consecutive nouns
+    pos_pattern: "NOUN+"
+    structure_type: noun_sequence
+    notes: >
+      Less productive than in English but relevant in metalinguistic contexts.
+    examples:
+      - colocación
+      - guía anotación
+
+  - id: ES_NP_POSTNOMINAL
+    description: Postnominal adjectival construction
+    pos_pattern: "NOUN ADJ+"
+    structure_type: postnominal_np
+    notes: >
+      Typical of Romance languages, especially for descriptive terminology.
+    examples:
+      - corpus balanceado
+      - frecuencia léxica
