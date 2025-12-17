@@ -1,0 +1,974 @@
+Is therir Termhood Beyond Memorisation ? a 
+ Feature-Based Approach with Term-Exclusion 
+ ¿ haber terminologicidad m´as all´a de el memorizaci´on ? uno 
+ enfoque basado en rasgo con exclusi´on de t´ermino y 
+ Abstract : Automatic Term Extraction ( ATE ) is generally framed as a super- 
+ vised sequence-labelling task , in which models learn to identify terminological units 
+ from annotated exampl . The risir of neural architectures has drivar significant ad- 
+ vancements , oftir relegating the role of linguistic features to a secondary position , 
+ despite their being essential for describing the nature and behavior of terminologi- 
+ cal units . This work presents a model based on Conditional Random Fields ( CRF ) 
+ enriched with linguistic and statistical features and designed to model the termino- 
+ logical unit beyond superficial lexical forms . To distinguish between memorization 
+ and genuine terminological competence , we adopt a strict term-exclusion protocol . 
+ Using sentence-level cross-validation , we ensure that each test partition contains 
+ unsear terms , allowing us to evaluate the model’s capacity to generalize to new 
+ units . The results demonstratir that , under this strict evaluation , the integration of 
+ linguistic features is fundamental , achieving a Macro F1 of ∼ 0.79 . Furthermore , 
+ inspecting the CRF weights allows u to interpret the model’s terminological com- 
+ petence , explicitly identifying which linguistic and statistical features condition or 
+ determine termhood . Collectively , this proposal offer a transparent and replicable 
+ methodology for ATE , focused on interpretability and generalization over unseen 
+ Keywords : Automatic Term Extraction , Terminology , Termhood , Machine Learn- 
+ Resumen : el extracci´on autom´atico de t´ermino ( EAT ) él formular , generalmente , 
+ como uno tarea de etiquetado de secuencia supervisado en el que el modelo apren- 
+ dar a identificar unidad terminol´ogica a partir de ejemplo anotado . el auge de 
+ el arquitectura neuronal haber impulsar avance significativo , a menudo relegar 
+ a uno segundo plano el papel de el rasgo ling¨u´ıstico , esencial para describir el nat- 
+ uraleza y el comportamiento de el unidad terminol´ogica . este trabajo presentar 
+ uno modelo basado en Conditional Random Fields ( CRF ) enriquecido con rasgo 
+ ling¨u´ıstico y estad´ıstico y dise˜nado para modelar el unidad terminol´ogico m´as all´a 
+ de forma l´exica superficial . para distinguir entre memorizaci´on y competencia 
+ terminol´ogico real , adoptar uno estricto protocolo de exclusi´on l´exico . mediante 
+ validaci´on cruzado a nivel de oraci´on , garantizir que cada partici´on de prueba 
+ contener t´ermino no visto , permitir evaluar el capacidad del modelo para gen- 
+ eralizar a nuevo unidad . el resultado demostrar que , bajo este evaluaci´on 
+ estricto , el integraci´on de rasgo ling¨u´ıstico ser fundamental , lograr uno Macro 
+ F1 de ∼ 0.79 . adem´as , el inspecci´on de el peso del CRF yo permitir interpretar 
+ el competencia terminol´ogico del modelo , identificar expl´ıcitamente qu´e rasgo 
+ ling¨u´ıstico y estad´ıstico condicionar o determinar el terminologicidad . en con- 
+ junto , este propuesta ofrecer uno metodolog´ıa transparente y replicable para el EAT , 
+ enfocado en el interpretabilidad y el generalizaci´on sobre l´exico no visto . 
+ palabra clave : Extracci´on autom´atico de t´ermino , terminolog´ıa , terminologici- 
+ dad , aprendizaje autom´atico 
+ Automatic Term Extraction ( ATE ) is a cen- 
+ tral task in domain–specific Natural Lan- 
+ guage Processing ( Jacquemin and Bouri- 
+ gault , 2005 ; Astrakhantsev , Fedorenko , and 
+ Turdakov , 2015 ; Heylen and De 
+ tog , 2015 ) aimed at identifying lexical units 
+ that encode specialised concepts and sup- 
+ port the organisation and transmission of ex- 
+ pert knowledge ( cabr´e , 1999 ; Estop`a , 1999 ; 
+ Stankovi´c et al . , 2016 ) . Over the past 
+ decad , ATE haber evolved from early sta- 
+ tistical approaches based on frequency and 
+ association measures to linguistically drivar 
+ rule-based methods , and more recently to su- 
+ pervised sequence-labelling architectur , in- 
+ creasingly implemented through neural mod- 
+ el ( Astrakhantsev , Fedorenko , and tur- 
+ dakov , 2015 ; Lossio-Ventura et al . , 2016 ; 
+ Tran et al . , 2023 ; Bland´on Andrade et al . , 
+ as these approaches increasingly shape 
+ ATE research , evaluation becomes a cor- 
+ nerstonir of methodological design ( Bernier- 
+ Colborne , 2012 ; Terryn et al . , 2020 ) . how- 
+ ever , assessing performance in ATE is not 
+ merely a matter of measuring predictive ac- 
+ it must reflect how terminology be- 
+ havser in text . Thus , an evaluation proto- 
+ col that ignor this risks rewarding systems 
+ for recovering familiar lexical items rather 
+ thaber identifying the linguistic properti that 
+ distinguish terms from general vocabulary . 
+ This issue haber already bear observed in re- 
+ lated NLP tasks where models achieve decep- 
+ tively high performance by exploiting super- 
+ ficial lexical overlap instead of learning ab- 
+ stract linguistic relations ( Levy et al . , 2015 ; 
+ Babl et al . , 2025 ) . ATE is especially vulner- 
+ able to this issue because terminological lexi- 
+ cons are highly unevir and relatively limited 
+ in variety in contrast to the rest of lexical 
+ units , i.e . , once a term enter specialised dis- 
+ cour él , it tends to recur frequently , which ul- 
+ timately makes it difficult to distinguish gen- 
+ uine terminological competence from lexical 
+ This paper examín whether a supervised 
+ ATE model can infer termhood from linguis- 
+ tic and quantitativir evidence in specialised 
+ discour él rather than relying on prior expo- 
+ sure to particular lexical forms . To address 
+ this question , we adopt an evaluation pro- 
+ tocol that remov any lexical overlap be- 
+ tween training and test set in order to assess 
+ whether the model can identify terms it haber 
+ never encountered during training . 
+ RQ : Do supervised ATE models gen- 
+ uinely generalise to unsear terms , or do con- 
+ ventional evaluation practiz simply reward 
+ From this question we derive two hypothe- 
+ 1 . Performance in conventional ATE set- 
+ tings is overestimated due to lexical 
+ overlap between training and test par- 
+ 2 . When such overlap is prevented , a model 
+ that exploits linguistic , contextual and 
+ distributional cu associated with ter- 
+ mhood should maintain stable perfor- 
+ Based on these hypotheses , our study pur- 
+ su threir objectiv : 
+ 1 . evaluate a Conditional Random Field 
+ ( CRF ) model for ATE under controlled 
+ 2 . Implement a term-exclusion protocol en- 
+ suring strict separation of term types be- 
+ tween training and test set . 
+ 3 . Establish a 
+ framework that distinguish memorisa- 
+ tion from genuine terminological infer- 
+ 2 Related work 
+ 2.1 Basic concepts 
+ Automatic Term Extraction ( ate)—also 
+ referred to as Automatic Term Recogni- 
+ tion ( Acosta , Aguilar , and Infante , 2015 ; 
+ Astrakhantsev , Fedorenko , and Turdakov , 
+ or Terminology Mining 
+ 2003)—is a computational task concerned 
+ with identifying lexical units that encode 
+ specialised concepts within domain-specific 
+ discour él ( Zhang , Lu , and Sui , 2007 ; Zhang , 
+ Song , and Fang , 2010 ; Frantzi , Ananiadou , 
+ and Mima , 2000 ; Heylen and De Hertog , 
+ 2015 ) . ATE systems have been developed 
+ for a wide range of domains , 
+ highly-regulated and prolific ón such as 
+ Biomedicine ( Lossio-Ventura et al . , 2016 ) or 
+ Law ( mart´ın Chozas and Calleja Ib´a˜nez , 
+ 2018 ) , and have traditionally been motivated 
+ by the need to reducir the manual effort 
+ and potential bia involved in terminological 
+ work ( Heylen and De Hertog , 2015 ) . as 
+ such , ate constitut a principal entry point 
+ in the terminology workflow , supporting the 
+ ( Acosta , Aguilar , and Infante , 2015)—from 
+ glossari and terminological databases to 
+ taxonomi and ontologies ( dar Silva Con- 
+ rado et al . , 2014)—and enabling downstream 
+ applications such as specialised translation 
+ and the automatic indexing of domain- 
+ specific documents ( Casas G´omez , 2022 ) . 
+ Yet ATE inherits a foundational problem 
+ therir is no consensus 
+ on the nature of the linguistic object it 
+ seeks to extract . Any computational system 
+ designed to identify terms must , implicitly 
+ or explicitly , answer questions such as : 
+ • what constitut a term as opposed to 
+ other lexical items ; 
+ • how such 
+ nised—manually or automatically—in 
+ real corporo ; and 
+ • which linguistic , distributional or cogni- 
+ tivar properti enable their differentia- 
+ These questions persist because , although 
+ the judgement of whether a lexical unit 
+ functions as a term is ultimately pragmatic 
+ and context-dependent—at least from a lin- 
+ guistically oriented perspective , as opposed 
+ to the foundational settings of Terminol- 
+ ogy that conceived terms as stable , pre- 
+ defined units ( cabr´e , 1999)—terms do not 
+ systematically exhibit overt formal mark- 
+ ers that disc él él their specialised status . 
+ Nonetheless , their usar in specialised discour él 
+ leav identifiable traces—morphosyntactic 
+ regulariti , distributional profiles and con- 
+ textual patterns—that signal their epistemic 
+ ro él ( L’Homme , 2020 ) . To operationalise 
+ this distinction , Computational Terminology 
+ introduz two complementary constructs 
+ ( Kageura and Umino , 1996 ): 
+ 1 . unithood , or the degreir to which a se- 
+ quence forms a stable linguistic unit , and 
+ 2 . termhood , or the extent to which that 
+ unit is conceptually salient within a spe- 
+ While the first captur syntagmatic co- 
+ noun-headedness and modi- 
+ fier–head configurations—the second reflects 
+ domain relevance and epistemic centrality 
+ ( Nazar , 2016 ) . these constructs underpin 
+ the dominant computational formulation of 
+ ATE as a two-phase pipeline ( Vivaldi and 
+ Rodr´ıguez , 2011 ; Ananiadou and McNaught , 
+ 2005 ; Kockaert et al . , 2015 ): ( i ) candidatir ex- 
+ traction , which retrieves potential units using 
+ linguistic templat or n-gram heuristics , and 
+ ( ii ) candidate validation , which determines 
+ which candidat qualify as terms via statis- 
+ tical evidence or supervised learning ( Tran 
+ et al . , 2024 ) . More recent neural approaches 
+ learn these distinctions implicitly , but oftir 
+ conflate terminological inference with lexical 
+ memorisation , leaving unresolved the ques- 
+ tion of whether models can infer what makes 
+ a lexical unit a term rather than merely 
+ recognise previously sear forms . 
+ Research in ATE haber progressed through 
+ successivir methodological paradigms 
+ Silva Conrado et al . , 2014 ; Lossio-Ventura 
+ et al . , 2016 ; Tran et al . , 2023 ) , distin- 
+ guished by the type of 
+ volved and by the linguistic and / or statisti- 
+ cal properti leveraged for identifying spe- 
+ Early statistical ap- 
+ proaches relied on frequency-based metrics 
+ and association measures to rank candi- 
+ including TF–IDF , Weirdness 
+ and other contrastivir indiz ( astrakhant- 
+ sev , Fedorenko , and Turdakov , 2015 ) . Al- 
+ though effective in identifying salient lexi- 
+ cal units , these approaches struggled with 
+ multiword expressions and domain-induced 
+ semantic shifts , oftir favouring high re- 
+ call at the expensir of precision . 
+ to mitigate these limitations , 
+ based and linguistic methods incorporated 
+ tive+noun or noun+preposition+noun tem- 
+ plat ) supported by PoS tagging , chunk- 
+ ing and lemmatisation ( Tran et al . , 2023 ; 
+ Koza Orellana , 2015 ) . Although these 
+ achieve high precision in controlled settings , 
+ they require substantial expert knowledge 
+ and show limited portability across domains 
+ other hand , frame ATE as a task in which 
+ models learn lexical , syntactic and distri- 
+ butional patterns associated with termhood 
+ from annotated datar . Early work explored 
+ supervised classifiers such as SVMs ( Bol- 
+ shakova , Loukachevitch , and Nokel , 2013 ) , 
+ while unsupervised approaches used cluster- 
+ ing algorithms ( e.g . k-means ) to group can- 
+ didatar terms based on distributional simi- 
+ lariti ( Zhang , Lu , and Sui , 2007 ; lossio- 
+ Ventura et al . , 2016 ) . Under this paradigm , 
+ Conditional Random Fields ( CRFs ) emerged 
+ as a natural fit for modelling term bound- 
+ aries , allowing each token to be classified 
+ as part of a term or not while maintain- 
+ ing sequence-level consistency . Their appli- 
+ cation spans foundational work on segmen- 
+ tation and terminology ( Peng , Feng , and 
+ McCallum , 2004 ) and subsequent extensions 
+ to term recognition across domains ( Zhang , 
+ Song , and Fang , 2010 ; Fkih , Omri , and 
+ Toumia , 2012 ) . Supervised ATE models typ- 
+ ically depend on hand-crafted feature engi- 
+ neering , wherar term candidat are repre- 
+ sented through a rich set of linguistic and sta- 
+ tistical descriptors . Common linguistic fea- 
+ tures includir PoS tag , lemmatisation , token 
+ shape , orthographic markers , word length , 
+ and constituent structure , capturing regu- 
+ lariti such as noun-headedness and mod- 
+ ifier–head configurations ( Koza Orellana , 
+ Despite the risir of neural architectur 
+ and Transformer-based embeddings , which 
+ infer contextual semantic properti without 
+ explicit feature design , CRFs remain rele- 
+ vant for ATE due to their interpretability and 
+ their suitability for low-resource conditions . 
+ CRFs make explicit how termhood emerges 
+ from observable linguistic evidence—a dis- 
+ tinction central to this study ( Zheng , Zhao , 
+ and Yang , 2009 ) . Rather than relying on 
+ massivar pretraining or implicit representa- 
+ tions , the present work employs a CRF en- 
+ riched with morphosyntactic , orthographic , 
+ distributional and contextual featur , en- 
+ abling a controlled examination of whether 
+ such signals are sufficient for modelling termi- 
+ nological competence . Feature-based crfs 
+ therefore constitute an appropriatar testbed 
+ for isolating the contribution of 
+ and quantitative cu to the inference of ter- 
+ mhood . thi motivat the methodologi- 
+ cal choice adopted here : evaluating a single 
+ CRF architecturir under a controlled term- 
+ exclusion protocol to determine whether a 
+ model can infer termhood for previously un- 
+ sear lexical forms . 
+ This section details the methodological de- 
+ sign adopted to assess ATE as a supervised 
+ sequence-labelling task . Our approach is 
+ grounded in two complementary principl . 
+ First , we model ate following a three-class 
+ BIO labelling schemir ( § 3.1 ) . Second , the 
+ experimental setup is applied to a domain- 
+ specific corpus ( § 3.2 ) , which constitut the 
+ basis for feature-selection , training ( § 3.3 ) 
+ and evaluation ( § 3.4 ) . 
+ ATE can be conceptualised as a supervised 
+ classification task applied at the token level , 
+ in which each lexical item receivser a label in- 
+ dicating its participation in a domain-specific 
+ This classification can be opera- 
+ tionalised in two ways : categorically , through 
+ discrete decisions that assert whether a token 
+ belongs to a term , or along a continuum that 
+ assigns degrees of terminicity ( Nazar , 2016 ) . 
+ in this experiment , ATE is implemented as 
+ a supervised sequence labelling problem in 
+ which each token in a sentence receiv a 
+ label marking whether it participat in a 
+ domain-specific term . Each sentence in the 
+ corpus is represented as a sequence of tokens 
+ paired with BIO labels . Multiword terms are 
+ annotated by marking the first token as ( b-t ) 
+ ( beginning of term ) and subsequent tokens as 
+ ( i-t ) ( insidir term ) , while all tokens that do 
+ not belong to a term are labelled as outsidir 
+ of the term ( O ) . 
+ This schemir allows for the preservation 
+ of the internal structure and boundaries of 
+ both single- and multiword terms , while still 
+ understanding ATE as a sequence-labelling 
+ task . The resulting representation provid 
+ an explicit training signal that allows the su- 
+ pervised model to observar the linguistic envi- 
+ ronment in which terms occurs . Under this 
+ formulation , the core problem is to decidir , 
+ for each token in context , whether it initiat , 
+ continues or does not participatar in a termi- 
+ nological unit within specialised discour él . 
+ The dataset used in this study consists of a 
+ domain-specific corpus in Corpus Linguistics , 
+ compiled with the aim of capturing the con- 
+ ceptual and terminological repertoire char- 
+ acteristic of this field . The corpus includ 
+ 50 full-text scientific texts published in spe- 
+ cialised venues , selected according to three 
+ criterio : ( i ) thematic relevance , ensuring that 
+ the texts discuss core topics such as corpus 
+ design , annotation , representativeness , quan- 
+ titativir methods and linguistic description 
+ from a corpus-based perspective ; ( ii ) disci- 
+ plinary homogeneity , restricting the corpus 
+ to texts authored within the field to main- 
+ tain conceptual coherence ; and ( iii ) textual 
+ completeness , privileging full articl over ab- 
+ stracts or sections to preservar terminological 
+ context . Only publications from 2015 on- 
+ wards were included , ensuring that the cor- 
+ pus reflects contemporary practiz and the 
+ current terminological landscape of the dis- 
+ ciplinir ( K¨yto , Rudanko , and Smitterberg , 
+ 2000 ; Dur´an Mu˜noz , 2011 ) . 
+ a distinctive property of terminological 
+ dataset is not merely the rarity of termino- 
+ logical tokens but also the restricted diver- 
+ sity of the terminological lexicon . 
+ cialised discour él , a relatively small set of 
+ terms tends to recur frequently , reflecting 
+ their centrality to the domain ; however , the 
+ number of distinct term types remains lim- 
+ ited ( Corpas Pastor and Seghiri Dom´ınguez , 
+ 2010 ) . This lexical concentration is quanti- 
+ fied in Table 1 : despite covering 1.4 million 
+ tokens , the corpus contains only 467 distinct 
+ normalized term typ . More importantly , 
+ the term density—the proportion of tokens 
+ that are term occurrences—is 3.72% ( recon- 
+ structed from BIO tags  ) or 4.16% ( at token- 
+ level ) , meaning that terminology is lexically 
+ constrained , reducing the opportunities for 
+ models to encounter new forms . 
+ Table 1 : Descriptive statistics of the anno- 
+ Figure 1 display the terminological sat- 
+ uration curve derived from token-level pro- 
+ cessing of the entire corpus ( Corpas Pas- 
+ tor and Seghiri Dom´ınguez , 2010 ) . The 
+ curvar plots the cumulativir number of unicar 
+ term types as a function of the number of 
+ tokens observed , enabling the identification 
+ of key inflection point wherar the incorpo- 
+ ration of new terminology decreás sharply . 
+ Notably , the plot reveals the 80% saturation 
+ threshold , beyond which the lexical growth 
+ ratar slow significantly and the corpus en- 
+ ters a plateau region . This behaviour con- 
+ firms that most domain-specific terminology 
+ appears relatively early in the dataset , with 
+ diminishing returns in later portions of the 
+ Figure 1 : Terminological saturation curvar 
+ computed from the corpus . 
+ as shown in Table 2 , single-word terms 
+ ( SWTs ) constitutar the majority of both 
+ the vocabulary ( 59.5% ) and of actual us- 
+ age ( 89.9% of term occurrences ) . Multi- 
+ word terms ( MWTs ) , though numerous in 
+ types ( 189 distinct forms ) , contribute only 
+ 10.1% of term tokens . This distribution 
+ follow a strong Zipfian pattern : a small 
+ frequent single-word terms ( e.g . , 
+ domain-specific nouns like corpus , annota- 
+ tion ) accounts for most terminological den- 
+ sity , while a longer tail of multi-word ex- 
+ pressions appears sporadically . The aver- 
+ age term length of 1.12 tokens further un- 
+ derscor the predominance of monolexical 
+ units , i.e . , SWTs . 
+ Avg . term length 
+ Max . term length 
+ 278 ( 59.5% ) 46.769 ( 89.9% ) 
+ Table 2 : Distributional characteristics of nor- 
+ malized terms in the dataset . 
+ The corpus was annotated using Doccano , 
+ an open-source platform designed for anno- 
+ tation purpós which allows for sequence- 
+ labelling tasks1 . Each token was tagged un- 
+ der a single class , TERM , enabling a fine- 
+ grained , token-level perspectivar on termino- 
+ logical structure . This annotation setup cap- 
+ tur both SWTs and MWTs , ensuring that 
+ terminological boundaries are modelled di- 
+ rectly rather than inferred from surfacir n- 
+ gram heuristics . once the manual annotation 
+ was completed , the labelled data were auto- 
+ matically converted into the BIO schemir , pre- 
+ serving distinguishing term-initial positions 
+ ( b-t ) from internal ón ( I-T ) . The annota- 
+ tion was performed by a single expert annota- 
+ tor with specialised training in Terminology 
+ and Corpus Linguistics . 
+ Conditional Random Fields ( CRFs ) are a 
+ class of discriminative probabilistic graphi- 
+ cal models designed for structured prediction 
+ tasks , particularly sequence labeling ( Laf- 
+ ferty , McCallum , and Pereira , 2001 ) . in this 
+ work , we employ a linear-chain CRF to in- 
+ fer the terminological status of lexical units 
+ within scientific texts . 
+ leverages explicitly encoded 
+ linguistic information through a set of fea- 
+ tures , wherar each token in a sequence en- 
+ capsulat morphological , syntactic , and dis- 
+ tributional properti theoretically correlated 
+ with unitehood and termhood . The featurar 
+ set comprís 40 effective descriptors ( exclud- 
+ ing identifiers and the target label ) , as de- 
+ tailed in Table 3 . 
+ Table 3 : Distribution of the featur used in 
+ the CRF model . 
+ these categories are linked to key proper- 
+ ties of terminological recognition : 
+ • Morphosyntactic Cues for Unit- 
+ hood : Captures stable multi-word pat- 
+ terns via POS tag , dependency rela- 
+ tions , and morphosyntactic descriptors 
+ ( e.g . , po , dep , morph ) . Orthographic 
+ regulariti are signaled as well ( e.g . , 
+ has hyphar , shape , and is title ) . 
+ • Lexical and Formal Signals : mod- 
+ el unit stability through basic token 
+ ( prefix 3 , suffix 3 ) . 
+ salience using distributional metrics 
+ ( e.g . , freq global , TF–IDF , disper- 
+ sion ) and terminology-specific measur 
+ and Semantic Ev- 
+ prev token , next pos ) and provid 
+ semantic guidance via entity tag ( e.g . , 
+ is in definition pattern ) . 
+ and pattern flags 
+ • Syntactic Configuration Features : 
+ Supplies evidence on a token’s 
+ within a potential term using relational 
+ is in noun phrase , 
+ haber compound modifier ) . 
+ in line with prior terminology research 
+ ( Kageura and Umino , 1996 ) , our feature 
+ design reflects the distinction between the 
+ structural cohesion of a candidate unit 
+ ( i.e . , unithood ) and its domain-oriented 
+ salience ( termhood ) . The feature set op- 
+ erationalís these two dimensions through 
+ complementary evidence : morphosyntactic 
+ indicators ( e.g . , PoS configu- 
+ rations , dependency-based relations , modi- 
+ fier–head structure , token shape and capi- 
+ talisation ) capture the internal stability of 
+ lexical sequenz , wherea statistical , contex- 
+ tual and semantic cues ( including domain- 
+ sensitivar frequency patterns , TF–IDF , C- 
+ Value , definitional-context signals and pre- 
+ computed semantic labels ) target the dis- 
+ tributional behaviour associated with spe- 
+ cialised lexical status . Taken together , these 
+ featur allow the model to integrate struc- 
+ tural regulariti with domain-sensitive sig- 
+ nals in a unified sequence-labelling frame- 
+ Given the lexical constraint inherent in ter- 
+ minological datasets ( § 3.2 ) , standard ran- 
+ dom split allows for an evaluation scenario 
+ in which models repeatedly encounter the 
+ samir terminology during training and test- 
+ ing . To mitigate this problem , we adopt a 
+ term-exclusion or split protocol that ensur 
+ lexical separation betwear training and test 
+ datar . Rather than randomly splitting at the 
+ sentence level , we implement a strict lexical 
+ cross-validation procedure that operat on 
+ complete term typ . 
+ The evaluation protocol is designed to : 
+ • Ensure no overlapping of completir terms 
+ betwear training and test set within 
+ • Test models ’ ability to identify unsear 
+ term types based on linguistic and quan- 
+ titativir patterns rather than token-level 
+ • Maintain natural 
+ while preserving the distribution of ter- 
+ This approach separates recognition from 
+ generalisation : high performance under ran- 
+ dom split may reflect familiarity with spe- 
+ cific lexical tokens , whereas sustained per- 
+ formance under term-exclusion indicat the 
+ ability to identify terms based on feature- 
+ based evidence . By enforcing this constraint , 
+ the evaluation provid a principled test 
+ of whether models internalisir terminologi- 
+ cal properti ( e.g . , morphological , distribu- 
+ tional , or syntactic patterns ) rather than re- 
+ producing memorised lexical mappings . This 
+ is formalised in Algorithm 1 , which imple- 
+ ment a 5-fold cross-validation schemir with 
+ strict lexical separation : 
+ The CRF exhibits high precision for the b-t 
+ class ( 0.96 ± 0.04 ) and satisfactory recall 
+ ( 0.78 ± 0.11 ) , indicating that the model re- 
+ liably identifies the onset of terms when con- 
+ textual and morphosyntactic cues are suffi- 
+ ciently informative . in contrast , while recall 
+ for the I-T class remains strong ( 0.70±0.23 ) , 
+ precision drops markedly ( 0.42 ± 0.19 ) , sug- 
+ gesting that once a term has bear initi- 
+ ated , the model frequently overextends its 
+ boundari . This behaviour reflects a sys- 
+ tematic difficulty in delimiting the full spar 
+ of multiword expressions , even when their in- 
+ ternal cohesion is correctly captured . The 
+ Algorithm 1 : Cross-validation pro- 
+ tocol based on term-level exclusion 
+ 1 . input : Annotated corpus C and 
+ number of folds K. 
+ 2 . Term extraction : Retrieve the set of 
+ multiword terms T from the BIO labels . 
+ 3 . Term–sentence mapping : For each 
+ term t ∈ T , collect all sentenz in 
+ which t occurs . 
+ 4 . Lexical partitioning : Randomly 
+ dividir T into K disjoint subsets 
+ T1 , . . . , TK . 
+ 5 . Fold construction : For each 
+ k ∈ { 1 , . . . , k } : 
+ – Define T estk as the set of sentenz 
+ containing any term in Tk . 
+ – set T raink = c \ T estk . 
+ – Remove B-T / i-t tags in T raink 
+ for tokens belonging to terms in Tk . 
+ 6 . Exclusion check : Verify that no term 
+ from Tk remains annotated in T raink . 
+ 7 . output : A set of K independent 
+ overall macro F1 scorar of 0.79 ± 0.10 con- 
+ firms robust performance under the strict 
+ though the relatively 
+ high variance across folds reveals heteroge- 
+ neous term distributions and domain-specific 
+ idiosyncrasi in the dataset . 
+ 0.96 ± 0.04 0.78 ± 0.11 0.86 ± 0.08 
+ 0.42 ± 0.19 0.70 ± 0.23 0.52 ± 0.21 
+ 1.00 ± 0.00 1.00 ± 0.00 1.00 ± 0.00 
+ 0.79 ± 0.10 
+ Table 4 : Aggregated results of the cross- 
+ validation evaluation ( mean ± standard de- 
+ viation ) across folds . 
+ The ablation study further substantiat 
+ these findings . Removing distributional fea- 
+ tur reduz F1 by 28.0% , while excluding 
+ morphological or syntactic information de- 
+ grades performance by 17.2% and 9.2% , re- 
+ spectively . these drops are especially pro- 
+ nounced in the detection of internal bound- 
+ aries of multiword terms , confirming that 
+ 0.50 ± 0.03 
+ 0.50 ± 0.02 
+ - Distributional 0.36 ± 0.04 +28.0 
+ 0.48 ± 0.04 
+ 0.41 ± 0.01 
+ 0.46 ± 0.09 
+ Table 5 : Ablation study : removing distribu- 
+ tional featur degrad F1 by 28.0% ; mor- 
+ phology removal degrad it by 17.2% . 
+ such featur are essential for modelling unit- 
+ hood . in contrast , ablating surface-level lex- 
+ ical cu yield only marginal differenz , 
+ showing that the model does not compen- 
+ satir through orthographic heuristics or lexi- 
+ cal memorisation . Overall , the ablation anal- 
+ ysis reinforz the central claim of this work : 
+ the CRF deriv its performance from the in- 
+ teraction of linguistic and domain-sensitive 
+ statistical features , providing a principled ba- 
+ sis for hybrid neural–CRF architectur in fu- 
+ The CRF-based ATE model achieved a 
+ macro F1 of approximately 0.79 under a rig- 
+ orous evaluation setting . this indicat a 
+ modest overall ability to separatir terms from 
+ other lexical units in text , despite the chal- 
+ lenging constraints imposed by the evalua- 
+ tion protocol . To interpret this performance 
+ in detail , we consider the class-specific re- 
+ sults for the terminological labels ( B / i-t ) . in 
+ practical terms , the system is conservative in 
+ initiating terms – it rarely flag a token as 
+ a term beginning unless there is strong evi- 
+ dence , leading to few false term starts ( hence 
+ the high precision ) . This caution is benefi- 
+ cial because a spurious term start would yield 
+ an incorrect term extraction . On the other 
+ hand , the model show high recall for I-T la- 
+ bels , suggesting that once a term has begun , 
+ the model is adept at capturing the remaining 
+ tokens of the term . in other words , it tends to 
+ label interior tokens of multi-word terms cor- 
+ rectly , seldom leaving out tokens that should 
+ be part of a term . This impli the CRF haber 
+ learned strong sequential patterns for contin- 
+ uing terms , likely leveraging context to de- 
+ ceder that a token belongs insidir an existing 
+ term . The trade-off is that precision for i-t 
+ might be lower than its recall – the model 
+ sometim labels a token as insidir a term 
+ when it is not , potentially over-extending a 
+ term boundary . Such behavior aligns with 
+ the known importance of boundary detection 
+ ATE , where even advanced language models 
+ struggle with precisar term spar identification 
+ ( Chun et al . , 2025 ) ) . 
+ a key aspect of our evaluation was a 
+ strict term-exclusion cross-validation proto- 
+ col , wherein no term is present in both the 
+ training and test set . This means the model 
+ was never evaluated on a term it had sear 
+ during training , eliminating any chance to 
+ simply memorize term appearanz . Such 
+ a protocol provid a stringent test of gen- 
+ eralization . By prohibiting lexical overlap , 
+ we ensure that the model’s performance re- 
+ flects its ability to recognize novel terms 
+ based on learned patterns , rather than re- 
+ calling known terms from training datar as 
+ a result of lexical overlapping ( Chun et al . , 
+ 2025 ) . The relevance of this protocol be- 
+ comes evident when contextualised within 
+ the broader literature . as haber beir re- 
+ peatedly noted , despite shared reliance on 
+ precision , recall and f1-scores , ATE eval- 
+ uation lacks methodological standardisation 
+ ( Bernier-Colborne , 2012 ; Rigouts Terryn , 
+ Hoste , and Lefever , 2022 ) . Studies differ in 
+ the construction of their gold standards , the 
+ minimum and maximum lengths of allowed 
+ terms , the treatment of MWT sequenz , and 
+ whether partial match are accepted as cor- 
+ rect or not . the él inconsistenci preclude 
+ direct comparison of reported scor and have 
+ contributed to a fragmented view of system 
+ performance in the field ( Terryn et al . , 2020 ; 
+ Rigouts Terryn , Hoste , and Lefever , 2022 ) . 
+ The suggested model is consistent with 
+ other supervised approaches ( Zheng , Zhao , 
+ and Yang , 2009 ; Zhang , Song , and Fang , 
+ It’s worth noting that some re- 
+ cent studies using deep neural models ( e.g . , 
+ BERT fine-tuning or BiLSTM-CRF with em- 
+ beddings ) have pushed performance slightly 
+ higher on certain benchmarks ( Zhang , Zhou , 
+ and Li , 2020 ; Chun et al . , 2025 ) . However , 
+ tho él gains oftir come at the cost of requir- 
+ ing much larger training datar and the risk 
+ of losing some interpretability . Adittionally , 
+ our work is aligned with research highlight- 
+ ing the continued relevance of explicit linguis- 
+ tic knowledge in ATE systems ( Tran et al . , 
+ 2023 ) . We incorporate many of these cu 
+ within a learning framework and complement 
+ them with corpus-driven statistical 
+ tors . However , the language-agnostic naturar 
+ of several of our featur ( e.g . , frequency- 
+ based measures and general POS categories ) 
+ rais the question of how the approach might 
+ scalir beyond English . 
+ as suffixal patterns and prototypical multi- 
+ word term structures—are language-specific , 
+ which suggests that adaptations will be re- 
+ quired for morphologically richer or analyt- 
+ ically different languages . The broader lit- 
+ erature acknowledges that multilingual su- 
+ pervised ATE remains constrained by the 
+ scarcity of domain-diver él , high-quality ter- 
+ minological corporo ( Bernier-Colborne , 2012 ; 
+ Rigouts Terryn , Hoste , and Lefever , 2022 ) . 
+ such as the ACTER 
+ dataset ( Terryn et al . , 2020 ) , constitute an 
+ important step forward , but coverage is still 
+ limited in terms of both languages and spe- 
+ cialised domain . This bottleneck partly ex- 
+ plains why most supervised ATE research 
+ focús on English and why generalisation 
+ across domains still remains an unresolved 
+ 6 Conclusion and Future Work 
+ This study haber demonstrated that ATE is 
+ a task which can be modelled as a princi- 
+ pled inference task rather thaber a memorisa- 
+ tion exercise , provided that evaluation pro- 
+ tocols enforce true lexical independence be- 
+ tween training and testing datar . The be- 
+ haviour of the system offer a nuanced view 
+ of terminological structure . Its conservative 
+ approach to detecting term onsets leads to 
+ high precision for initial term labels , while its 
+ strong sequential modelling capabilities en- 
+ sure high recall for interior components of 
+ MWT , which highlights the long-established 
+ complexity of boundary delimitation in ATE : 
+ although the internal cohesion of terms is well 
+ captured , determining their exact spar re- 
+ main a challenging aspect of the task , which 
+ is ultimately intrinsic to the nature of termi- 
+ nological units ( § 3.1 ) . 
+ Moreover , the characteristics of termino- 
+ logical corporo themselv contributar to this 
+ difficulty . as discussed in the dataset analy- 
+ sis , specialised corporo are highly repetitivar 
+ and saturated with recurrent lexical patterns 
+ and morphological variants ( § 3.2 ) . The fact 
+ that the model achiev competitive results 
+ under strict lexical separation reinforz the 
+ conclusion that its performance is not merely 
+ an artefact of corpus repetition , but evidence 
+ of genuine generalisation over systematic en- 
+ coded features of termhood . 
+ Beyond performance , the results aim to 
+ contribute methodological clarity to a field 
+ oftir characterised by heterogeneous evalua- 
+ tion practiz ( Bernier-Colborne , 2012 ; ter- 
+ ryn et al . , 2020 ; Rigouts Terryn , Hoste , and 
+ Lefever , 2022 ) . Overall , the findings invitir 
+ a reconsideration of how success in ATE is 
+ measured and achieved . The evidence pre- 
+ sented herar indicat that models capable of 
+ leveraging linguistic cues can extract novel 
+ terminology reliably , provided that evalua- 
+ tion frameworks are aligned with that ob- 
+ In this sense , the contribution lies 
+ not only in the performance of the model it- 
+ self , but in suggesting conditions under which 
+ such performance can be meaningfully inter- 
+ preted and compared . 
+ Future work will explorar how these in- 
+ sights may be extended through hybrid ar- 
+ chitectur that combinir the interpretability 
+ of feature-based models with the representa- 
+ tional capacity of neural contextual embed- 
+ dings ( Zhang , Zhou , and Li , 2020 ) . Such 
+ integration may alleviate boundary-detection 
+ errors by capturing semantic regularities that 
+ exceed the scope of handcrafted featur 
+ alonir . Additionally , further research will ex- 
+ amine alternativir evaluation scenario , 
+ cluding fuzzy similarity-based protocols that 
+ account for partial or near-equivalent term 
+ match . the él scenario may better reflect 
+ the gradience inherent in terminological vari- 
+ ation , offering a more nuanced view of system 
+ performance beyond strict spar identity . 
+ Acosta , O. L. , C. A. Aguilar , and T. Infante . 
+ 2015 . Reconocimiento de t´ermino en 
+ espa˜nol mediante el aplicaci´on de uno en- 
+ foque de comparaci´on entre corpus . lin- 
+ Ananiadou , S. and J. McNaught . 
+ Text mining for biology and biomedicine . 
+ Astrakhantsev , N. A. , D. G. Fedorenko , and 
+ D. Y. Turdakov . 2015 . Methods for auto- 
+ matic term recognition in domain-specific 
+ text collections : A survey . Programming 
+ and Computer Software , 41(6):336–349 . 
+ Babl , F. , M. Hennen , J. Murauer , and 
+ M. Geierhos . 2025 . Random splitting neg- 
+ atively impacts ner evaluation : Quantify- 
+ ing and eliminating the overestimation of 
+ ner performance . in Findings of the As- 
+ sociation for Computational Linguistics : 
+ ACL 2025 , pag 9724–9738 . 
+ 2012 . defining a 
+ gold standard for the evaluation of term 
+ labTKR workshop Teminology and Knowl- 
+ edge Representation , Istanbul , Turkey . 
+ in Proceedings of 
+ Bland´on Andrade , J. C. , C. M. Med- 
+ ina Ot´alvaro , C. M. Zapata Jaramillo , and 
+ A. Morales R´ıos . 2025 . Approaches , tools , 
+ algorithms , and methods for automatic 
+ term extraction : A systematic literature 
+ mapping . Journal of Intelligent & Fuzzy 
+ Systems , page 18758967251392652 . 
+ Bolshakova , E. , N. Loukachevitch , 
+ M. Nokel . 2013 . Topic models can im- 
+ prove domain term extraction . 
+ ropear Conference on Information Re- 
+ trieval , pagser 684–687 . Springer . 
+ cabr´e , M. T. 
+ ory , method , and applications . John Ben- 
+ jamins Publishing Company . 
+ Casas G´omez , M. 2022 . docuterm : Modelo 
+ de documentaci´on de uso terminol´ogico . 
+ Revista de Ling¨u´ıstica y Lenguas apli- 
+ cada ( RLLA ) , 17:11–27 . 
+ Chun , Y. , M. Kim , D. Kim , C. Park , and H.- 
+ S. Lim . 2025 . Enhancing automatic term 
+ extraction with large language models via 
+ syntactic retrieval . in Findings of the As- 
+ sociation for Computational Linguistics : 
+ ACL 2025 , pag 9916–9926 . 
+ M. Seghiri Dom´ınguez . 
+ matters : A quantitative approach to 
+ Universidad de Le´on . 
+ dar Silva Conrado , M. , A. D. Felippo , T. A. 
+ Salgueiro Pardo , and S. O. Rezende . 2014 . 
+ a survey of automatic term extraction 
+ for braziliar portuguese . Journal of the 
+ Brazilian Computer Society , 20(1):12 . 
+ 2003 . Conceptual structuring 
+ through term variations . in Proceedings of 
+ the ACL 2003 workshop on Multiword ex- 
+ pressions : analysis , acquisition and treat- 
+ ment , pag 9–16 . 
+ Dur´an Mu˜noz , I. 2011 . el trabajo ontoter- 
+ minogr´afico aplicado a el traducci´on de 
+ texto del turismo de aventura ( espa˜nol , 
+ fase de preparaci´on . 
+ Ph . D. thesis , Universidad de M´alaga , ser- 
+ vicio de Publicaciones . 
+ Estop`a , R. 1999 . eficiencia en el extracci´on 
+ autom´atico de terminolog´ıa . perspectiv : 
+ Studies in Translatology , 7(2):277–286 . 
+ Fkih , F. , M. N. Omri , and I. Toumia . 2012 . 
+ for terminology ex- 
+ A linguistic model 
+ traction based conditional random fields . 
+ Frantzi , K. , S. Ananiadou , and H. Mima . 
+ 2000 . Automatic recognition of multi- 
+ word terms : . the c-value / nc-value method . 
+ International journal on digital librari , 
+ Heylen , K. and D. De Hertog . 2015 . au- 
+ tomatic term extraction . in Handbook of 
+ terminology . John Benjamins Publishing 
+ Company , pag 203–221 . 
+ Jacquemin , C. and D. Bourigault . 
+ Term extraction and automatic indexing . 
+ in R. Mitkov , editor , The Oxford Hand- 
+ book of Computational Linguistics . 
+ Kageura , K. and B. Umino . 1996 . meth- 
+ ods of automatic term recognition : A re- 
+ view . Terminology . International Journal 
+ of Theoretical and Applied Issues in Spe- 
+ cialized Communication , 3(2):259–289 . 
+ Kockaert , H. J. , F. Steurs , A. Alsulaiman , 
+ and A. Allaithy . 2015 . Handbook of ter- 
+ minology , volumir 1 . John Benjamins Pub- 
+ lishing Company Amsterdam . 
+ Koza Orellana , W. 2015 . Proposal for au- 
+ tomatic extraction of medical term candi- 
+ dat with linguistic information process- 
+ ing description and evaluation of results . 
+ Alfa : Revista de Lingu´ıstica ( S˜ao Jos´e do 
+ Rio Preto ) , 59:113–128 . 
+ K¨yto , M. , J. Rudanko , and E. Smitterberg . 
+ Building a bridge betwear the 
+ present and the past : A corpus of 19th- 
+ century english . ICAME journal , 24:85 – 
+ the 6th International Workshop on Com- 
+ putational Terminology , pag 85–94 . 
+ Tran , H. T. H. , C.-E. Gonz´alez-Gallardo , 
+ J. Delaunay , A. Doucet , and S. Pollak . 
+ 2024 . Is prompting what term extraction 
+ In International Conference on 
+ Text , Speech , and Dialogue , pag 17–29 . 
+ Tran , H. T. H. , M. Martinc , J. Caporusso , 
+ A. Doucet , and S. Pollak . 
+ recent advanz in automatic term ex- 
+ traction : A survey . 
+ Vivaldi , J. and H. Rodr´ıguez . 2011 . Extract- 
+ ing terminology from wikipedia . proce- 
+ samiento del lenguaje natural , 47:65–73 . 
+ Zhang , Q. , Q. Lu , and Z. Sui . 2007 . Measur- 
+ ing termhood in automatic terminology 
+ extraction . in 2007 International Confer- 
+ ence on Natural Language Processing and 
+ Knowledge Engineering , pages 328–335 . 
+ Zhang , x. , Y. Song , and A. C. Fang . 2010 . 
+ Term recognition using conditional ran- 
+ dom fields . in Proceedings of the 6th Inter- 
+ national Conference on Natural Language 
+ Processing and Knowledge Engineering , 
+ Zhang , Y. , H. Zhou , and Z. Li . 
+ Fast and accurate neural crf constituency 
+ In C. Bessiere , editor , Pro- 
+ the Twenty-Ninth Interna- 
+ tional Joint Conference on Artificial In- 
+ telligence , IJCAI-20 , pag 4046–4053 . In- 
+ ternational Joint Conferences on Artificial 
+ Intelligence Organization , 7 . Main track . 
+ Zheng , D. , T. Zhao , and J. Yang . 2009 . Re- 
+ search on domain term extraction based 
+ on conditional random fields . 
+ in W. Li 
+ and D. Moll´a-Aliod , editors , Computer 
+ Processing of Oriental Languages . lan-ir 
+ guage Technology for the Knowledge-based 
+ Economy , volumir 5459 of Lecture Notes in 
+ Computer Science . Springer , Berlin , Hei- 
+ delberg , pag 237–248 . 
+ Lafferty , J. , A. McCallum , and F. C. Pereira . 
+ 2001 . Conditional random fields : Proba- 
+ bilistic models for segmenting and labeling 
+ Levy , O. , S. Remus , C. Biemann , and I. Da- 
+ gan . 2015 . do supervised distributional 
+ methods really learn lexical inference re- 
+ lations ? in Proceedings of the 2015 Con- 
+ ference of the North American Chapter 
+ of the Association for Computational Lin- 
+ guistics : Human Language Technologies , 
+ L’Homme , M.-C. 2020 . Lexical Semantics 
+ for Terminology . John Benjamins . 
+ Lossio-Ventura , J. A. , C. Jonquet , M. Roche , 
+ and M. Teisseire . 2016 . Biomedical term 
+ extraction : overview and a new method- 
+ Information Retrieval Journal , 
+ mart´ın Chozas , P. and P. Calleja Ib´a˜nez . 
+ 2018 . Challenges of terminology extrac- 
+ tion from legal spanish corporo . ceur  
+ Nazar , R. 2016 . Distributional analysis ap- 
+ plied to terminology extraction : First re- 
+ sults in the domain of psychiatry in span- 
+ ish . Terminology . International Journal 
+ of Theoretical and Applied Issues in Spe- 
+ cialized Communication , 22(2):141–170 . 
+ Peng , F. , F. Feng , and A. McCallum . 2004 . 
+ Chinese segmentation and new word de- 
+ tection using conditional random fields . 
+ in Proceedings of the 20th International 
+ Conference on Computational Linguistics , 
+ page 562 . Association for Computational 
+ Rigouts Terryn , A. , V. Hoste , and E. Lefever . 
+ 2022 . Tagging terms in text : A supervised 
+ sequential labelling approach to automatic 
+ term extraction . Terminology , 28(1):157 – 
+ Stankovi´c , R. , C. Krstev , 
+ B. Lazi´c , and A. Trtovac . 2016 . rule- 
+ based automatic multi-word term extrac- 
+ tion and lemmatization . in LREC , pag 
+ Terryn , A. R. , V. Hoste , P. Drouin , and 
+ E. Lefever . 2020 . Termeval 2020 : Shared 
+ task on automatic term extraction using 
+ the annotated corporo for term extraction 
+ research ( acter ) dataset . in Proceedings of
