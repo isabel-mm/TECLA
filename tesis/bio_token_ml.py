@@ -106,9 +106,12 @@ NUMERIC_COLS = [
     "position_in_sentence",
     "avg_position_in_sentence",
     "is_acronym",
+    "is_titlecase",
+    "has_digit",
     "token_length",
     "sentence_length",
     "in_definition_context",
+    "is_first_occurrence_in_doc",
     "freq_in_text",
     "freq_global",
     "document_frequency",
@@ -340,6 +343,8 @@ def process_language(lang: str, docs, terms) -> pd.DataFrame:
                     noun_chunk_token_ids.add(global_offset + tok.i)
                 noun_chunk_heads.add(global_offset + chunk.root.i)
 
+            doc_lemmas_seen = set()  # Track lemmas already seen in this document
+
             for sent in chunk_doc.sents:
                 sent_tokens = [tok for tok in sent if not tok.is_space]
                 if not sent_tokens:
@@ -352,6 +357,8 @@ def process_language(lang: str, docs, terms) -> pd.DataFrame:
 
                 for tok_idx, tok in enumerate(sent_tokens):
                     lemma = normalize(tok.lemma_ or tok.text, lang)
+                    is_first_occurrence = int(lemma not in doc_lemmas_seen)
+                    doc_lemmas_seen.add(lemma)
                     doc_lemma_counter[lemma] += 1
                     doc_lemma_sentence_set[lemma].add(sent_global_idx)
                     lemma_global[lemma] += 1
@@ -402,9 +409,12 @@ def process_language(lang: str, docs, terms) -> pd.DataFrame:
                             ),
                             "position_in_sentence": round(tok_idx / max(len(sent_tokens) - 1, 1), 6),
                             "is_acronym": int(tok.text.isupper() and len(tok.text) > 1 and tok.text.isalpha()),
+                            "is_titlecase": int(tok.text and tok.text[0].isupper() and tok.text[1:].islower()),
+                            "has_digit": int(any(c.isdigit() for c in tok.text)),
                             "token_length": len(tok.text),
                             "sentence_length": len(sent_tokens),
                             "in_definition_context": in_definition,
+                            "is_first_occurrence_in_doc": is_first_occurrence,
                             "doc_length_tokens": len(tokens_all),
                         }
                     )
