@@ -18,7 +18,7 @@ HERE = Path(__file__).resolve().parent
 BIO_DIR = HERE / "bio"
 
 sys.path.insert(0, str(HERE))
-from bio_token_ml import CATEGORICAL_COLS, NUMERIC_COLS, build_preprocessor, CLASS_WEIGHTS_BIO
+from bio_token_ml import NUMERIC_COLS, CLASS_WEIGHTS_BIO
 
 # Escenarios de ablation
 ABLATION_SCENARIOS = {
@@ -36,11 +36,10 @@ ABLATION_SCENARIOS = {
 }
 
 def evaluate_scenario(df, scenario_name, excluded_features):
-    """Entrena y evalúa modelo sin ciertos features"""
+    """Entrena y evalúa modelo sin ciertos features (solo features numéricas escaladas)"""
     numeric_filtered = [f for f in NUMERIC_COLS if f not in excluded_features]
-    all_features = CATEGORICAL_COLS + numeric_filtered
 
-    X = df[all_features].copy()
+    X = df[numeric_filtered].copy()
     y = df["label_bio"].copy()
 
     cv = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=42)
@@ -52,9 +51,9 @@ def evaluate_scenario(df, scenario_name, excluded_features):
         X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
         y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 
-        preprocessor = build_preprocessor()
-        X_train_proc = preprocessor.fit_transform(X_train)
-        X_test_proc = preprocessor.transform(X_test)
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
 
         clf = LogisticRegression(
             max_iter=2500,
@@ -62,8 +61,8 @@ def evaluate_scenario(df, scenario_name, excluded_features):
             random_state=42,
             n_jobs=-1
         )
-        clf.fit(X_train_proc, y_train)
-        y_pred = clf.predict(X_test_proc)
+        clf.fit(X_train_scaled, y_train)
+        y_pred = clf.predict(X_test_scaled)
 
         metrics["f1_macro"].append(f1_score(y_test, y_pred, average="macro", zero_division=0))
         metrics["f1_weighted"].append(f1_score(y_test, y_pred, average="weighted", zero_division=0))
