@@ -2,5 +2,14 @@ docs/.DS_Store
 .venv/
 __pycache__/
 .DS_Store
-.venv/
-__pycache__/
+tesis/bio/
+tesis/maquetacion/main.pdf
+tesis/maquetacion/.aux
+tesis/maquetacion/*.aux
+tesis/maquetacion/*.log
+tesis/maquetacion/*.toc
+tesis/maquetacion/*.bcf
+tesis/maquetacion/*.xml
+tesis/maquetacion/*.bbl
+tesis/maquetacion/*.blg
+tesis/maquetacion/*.out
