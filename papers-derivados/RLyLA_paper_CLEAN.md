@@ -78,7 +78,7 @@ Corpus Linguistics constitutes an instructive case in point. As a discipline, it
 
 Automatic definition generation has progressed from rule-based pattern matching to neural and, most recently, generative approaches. Early systems exploited lexico-syntactic patterns and machine-readable dictionaries (Fontenelle, 1990; Saggion, 2004), with subsequent development of hybrid approaches combining terminology extraction and definition generation (Heylen & De Hertog, 2015); subsequent work introduced neural architectures for definition extraction (Espinosa-Anke et al., 2018; Veyseh et al., 2020). Retrieval-augmented generation (RAG) has more recently been proposed as a means of grounding generative output in external evidence (Lewis et al., 2020; Gao et al., 2023), with the expectation that corpus-derived contexts improve domain alignment and reduce hallucination. However, in low-resource domains where authoritative texts are dispersed, paywalled or print-only, standard RAG relying on automatic retrieval breaks down. Zamora Rey (en prensa) proposes Context-Augmented Generation (CAG) as an adaptation that maintains RAG's two-stage architecture—information enrichment followed by synthesis—while replacing automatic retrieval with expert curation of source materials. This hybrid human-in-the-loop approach preserves the quality of corpus grounding while acknowledging the practical reality of resource constraints and the importance of terminologist expertise in identifying definitional contexts that explicitly enumerate essential characteristics.
 
-The integration of large language models into terminology work has accelerated substantially in recent years (Chataut et al., 2024; Chun et al., 2025), extending well beyond definition generation. Massion (2024) traces the transformation of terminology theory and practice under generative AI, arguing that LLMs are restructuring the terminology workflow from term extraction and equivalence identification to concept system construction, and that this transformation demands a corresponding revision of how terminological quality is understood and measured. San Martín (2025) develops this argument in terms of a human-centred framework, positioning AI as a means of amplifying the terminologist's capabilities rather than replacing expert judgement, and emphasising that bias mitigation, ethical oversight and conceptual adequacy remain tasks for which human expertise is indispensable. From a workflow perspective, Messerklinger et al. (2025) explore terminology-augmented generation as a specialised extension of RAG that retrieves structured terminological entries rather than unstructured passages, demonstrating that the formatting of terminological evidence supplied to the model substantially affects the quality of the output. Taken together, this body of work places the present study within a rapidly evolving field in which definition generation has shifted from a marginal application to a pressing practical problem: as LLMs enter terminographic workflows, the question of how to evaluate their output becomes as urgent as the question of how to produce it.
+The integration of large language models into terminology work has accelerated substantially in recent years (Chataut et al., 2024; Chun et al., 2025; Crespo Miguel, 2020; Estopa Bagot, 2022), extending well beyond definition generation. Massion (2024) traces the transformation of terminology theory and practice under generative AI, arguing that LLMs are restructuring the terminology workflow from term extraction and equivalence identification to concept system construction, and that this transformation demands a corresponding revision of how terminological quality is understood and measured. San Martín (2025) develops this argument in terms of a human-centred framework, positioning AI as a means of amplifying the terminologist's capabilities rather than replacing expert judgement, and emphasising that bias mitigation, ethical oversight and conceptual adequacy remain tasks for which human expertise is indispensable. From a workflow perspective, Messerklinger et al. (2025) explore terminology-augmented generation as a specialised extension of RAG that retrieves structured terminological entries rather than unstructured passages, demonstrating that the formatting of terminological evidence supplied to the model substantially affects the quality of the output. Taken together, this body of work places the present study within a rapidly evolving field in which definition generation has shifted from a marginal application to a pressing practical problem: as LLMs enter terminographic workflows, the question of how to evaluate their output becomes as urgent as the question of how to produce it.
 
 The central difficulty, however, is not generation but evaluation. A substantial body of work has shown that lexical-overlap metrics such as BLEU and ROUGE correlate weakly with human judgement, since they reward surface coincidence rather than meaning preservation (Zhang et al., 2019; Deutsch et al., 2020). Embedding-based metrics such as BERTScore improve correlation but measure topical proximity rather than conceptual correctness, and remain opaque as to why a given output is judged adequate (Clinciu et al., 2021). Zamora Rey's (en prensa) empirical investigation of definition evaluation yields a striking finding: COMET, a neural metric specifically developed to predict human judgements of translation quality, achieved consistent moderate-to-good scores (mean 0.6526) for automatically generated terminological definitions, yet showed only weak correlation (ρ = 0.15, p = 0.62) with expert judgement. The divergence is particularly pronounced when subtle conceptual nuances are at stake. In Zamora Rey's dataset, a generated definition of *homónimo* received a relatively high COMET score (0.72) despite containing a critical factual error: the definition stated that homonyms "share the same sound or pronunciation, but differ in meanings or writings," when in fact homonyms share both spelling and pronunciation, a distinction crucial for delimiting this concept from homophones and homographs. COMET successfully captured the structural and lexical similarity to dictionary definitions but could not detect this nuanced inaccuracy, revealing a fundamental limitation: semantic similarity metrics, while valuable for assessing surface alignment, cannot guarantee factual correctness when subtle domain-specific distinctions are at stake—distinctions that are precisely what terminological experts prioritize in evaluation. This finding underscores why expert validation, rather than automatic metrics alone, must remain central to definition quality assessment in specialised domains.
 
@@ -279,27 +279,21 @@ NOT USED/ Chun, Y., Kim, M., Kim, D., Park, C. & Lim, H.-S. (2025). "Enhancing A
 
 Clinciu, M.-A., Eshghi, A. & Hastie, H. (2021). "A study of automatic metrics for the evaluation of natural language explanations", *Proceedings of the 16th Conference of the European Chapter of the Association for Computational Linguistics*, 2376–2387.
 
-NOT USED/ Conneau, A., Khandelwal, K., Goyal, N., Chaudhary, V., Wenzek, G., Guzmán, F., Grave, É., Ott, M., Zettlemoyer, L. & Stoyanov, V. (2020). "Unsupervised Cross-lingual Representation Learning at Scale", *Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics*, 8440–8451.
 
 NOT USED/ Conrado, M., Pardo, T. & Rezende, S. O. (2013). "A machine learning approach to automatic term extraction using a rich feature set", *Proceedings of the 2013 NAACL HLT student research workshop*, 16–23.
 
-NOT USED/ Corpas Pastor, G. & Seghiri Domínguez, M. (2010). "Size matters: A quantitative approach to corpus representativeness", in *Lengua, traducción, recepción*. Publicaciones Universidad de León.
 
 NOT USED/ Crespo Miguel, M. (2020). "Lingüística digital: revisión de su estado actual y retos en el Instituto Universitario de Investigación en Lingüística Aplicada de la Universidad de Cádiz", *Pragmalingüística* 28, 148–165.
 
-NOT USED/ Crespo Miguel, M. (2023). "Análisis terminológico mediante algoritmos de representación conceptual", in *La terminología de la semántica*. Editorial Universidad de Sevilla.
 
 da Silva Conrado, M., Felippo, A. D., Salgueiro Pardo, T. A. & Rezende, S. O. (2014). "A survey of automatic term extraction for Brazilian Portuguese", *Journal of the Brazilian Computer Society* 20/1, 12.
 
 NOT USED/ Daille, B. (2003). "Conceptual structuring through term variations", *Proceedings of the ACL 2003 workshop on Multiword expressions: analysis, acquisition and treatment*, 9–16.
 
-NOT USED/ Dale, R. (2001). "Symbolic approaches to natural language processing", in *Handbook of Natural Language Processing*. Marcel Dekker.
 
 da Silva, B. C. D. (2006). "O estudo lingüístico-computacional da linguagem", *Letras de Hoje* 41/2.
 
-NOT USED/ Dash, N. S. & Arulmozi, S. (2018). *History, Features, and Typology of Language Corpora*. Springer.
 
-NOT USED/ De Vega, M. (1998). "La psicología cognitiva: ensayo sobre un paradigma en transformación", *Anuario de psicología/The UB Journal of psychology*, 21–44.
 
 Depecker, L. (2005). "Contribution de la terminologie à la linguistique", *Langages* 157/1, 6–13.
 
@@ -317,21 +311,16 @@ NOT USED/ Duran Muñoz, I. (2011). *El trabajo ontoterminográfico aplicado a la
 
 NOT USED/ Egbert, J., Biber, D. & Gray, B. (2022). *Designing and Evaluating Language Corpora: A Practical Framework for Corpus Representativeness*. Cambridge University Press.
 
-NOT USED/ Espinosa-Anke, L., Camacho-Collados, J., Delli Bovi, C. & Saggion, H. (2018). "Syntactically aware neural architectures for definition extraction", *Proceedings of NAACL-HLT*, 378–385.
 
 NOT USED/ Estopa Bagot, R. (1999). "Eficiencia en la extracción automática de terminología", *Perspectives: Studies in Translatology* 7/2, 277–286.
 
-NOT USED/ Estopa Bagot, R. (2016). "La neología especializada: Términos médicos en la prensa española", in *Estudios de neología del español*. Servicio de Publicaciones.
 
 NOT USED/ Estopa Bagot, R. (2022). "Neología general y especializada", in *Neología del español: del uso al diccionario*. Iberoamericana.
 
-NOT USED/ Ferrari, G. (2006). "State of the art in Computational Linguistics", in *Linguistics Today--Facing a Greater Challenge*. John Benjamins Publishing Company.
 
-NOT USED/ Fkih, F., Omri, M. N. & Toumia, I. (2012). "A Linguistic Model for Terminology Extraction based Conditional Random Fields", *ArXiv* abs/1210.0252.
 
 NOT USED/ Flowerdew, J. (1992). "Definitions in science lectures", *Applied Linguistics* 13/2, 202–221.
 
-NOT USED/ Fodor, J. A. (1983). *The Modularity of Mind*. MIT press.
 
 NOT USED/ Fontenelle, T. (1990). "Automatic extraction of lexical-semantic relations from dictionary definitions", *Proceedings of EURALEX*.
 
