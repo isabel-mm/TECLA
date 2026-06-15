@@ -53,12 +53,12 @@ A distinction that is directly relevant to this study runs between the canonical
 
 This shared core can be operationalised through four recurrent criteria that structure the evaluation protocol adopted in this study, grounded in structural theory (Sager & L'Homme, 1994), contextual semantics (San Martín, 2022), and practical terminographic assessment.
 
-| **Criterion** | **Structural basis** | **Contextual dimension** | **Definition** |
-|---|---|---|---|
-| **Conceptual adequacy** | Correct genus proximum; appropriate concept class (Sager & L'Homme, 1994) | Thematic/domain appropriateness (San Martín, 2022) | Does the definition correctly identify the target concept rather than a neighbouring or superordinate one? Does the genus-and-differentia structure, where applicable, accurately situate the concept within its domain taxonomy? |
-| **Completeness** | Sufficient differentia specifica; avoids circularity (Sager & L'Homme, 1994) | Semantic potential activated in context; parametrized contextual constraints (San Martín, 2022) | Does the definition include the conceptual properties necessary to delimit the category from related ones? Does it avoid both over-specification and under-specification? |
-| **Terminological precision** | Use of established terms and domain apparatus | Register and vocabulary appropriate to specialisation level and audience | Does the definition employ the established terms and conceptual apparatus of the field, avoiding lay paraphrases or imprecise approximations that obscure conceptual distinctions? |
-| **Clarity** | Well-formed structure; avoids defects in expression | Accessibility given audience prior knowledge and discourse context | Is the definition structurally well-formed, avoiding unnecessary complexity, and communicating conceptual content without requiring inference beyond what the target audience can reasonably be expected to supply? |
+| **Criterion**                | **Structural basis**                                                   | **Contextual dimension**                                                                   | **Definition**                                                                                                                                                                                                              |
+| ---------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Conceptual adequacy**      | Correct genus proximum; appropriate concept class (Sager & L'Homme, 1994)    | Thematic/domain appropriateness (San Martín, 2022)                                              | Does the definition correctly identify the target concept rather than a neighbouring or superordinate one? Does the genus-and-differentia structure, where applicable, accurately situate the concept within its domain taxonomy? |
+| **Completeness**             | Sufficient differentia specifica; avoids circularity (Sager & L'Homme, 1994) | Semantic potential activated in context; parametrized contextual constraints (San Martín, 2022) | Does the definition include the conceptual properties necessary to delimit the category from related ones? Does it avoid both over-specification and under-specification?                                                         |
+| **Terminological precision** | Use of established terms and domain apparatus                                | Register and vocabulary appropriate to specialisation level and audience                         | Does the definition employ the established terms and conceptual apparatus of the field, avoiding lay paraphrases or imprecise approximations that obscure conceptual distinctions?                                                |
+| **Clarity**                  | Well-formed structure; avoids defects in expression                          | Accessibility given audience prior knowledge and discourse context                               | Is the definition structurally well-formed, avoiding unnecessary complexity, and communicating conceptual content without requiring inference beyond what the target audience can reasonably be expected to supply?               |
 
 These four dimensions are not fully independent—terminological precision contributes to both conceptual adequacy and clarity—but they capture distinct aspects of definitional quality and allow a nuanced assessment of how human- and machine-generated entries differ.
 
@@ -231,9 +231,6 @@ NOT USED/ Alcina, A. (2003). "La programación de objetivos didácticos en Termi
 
 Astrakhantsev, N. A., Fedorenko, D. G. & Turdakov, D. Y. (2015). "Methods for automatic term recognition in domain-specific text collections: A survey", *Programming and Computer Software* 41/6, 336–349.
 
-
-
-
 NOT USED/ Bel, N. (2025). "Un vocabulario básico de los modelos grandes de lenguaje: una explicación y 25 términos", *Terminàlia* 31, 27–39.
 
 NOT USED/ Bernier-Colborne, G. (2012). "Defining a gold standard for the evaluation of term extractors", *Proceedings of the colabTKR workshop Terminology and Knowledge Representation*, Istanbul.
@@ -244,10 +241,7 @@ NOT USED/ Blandon Andrade, J. C., Medina Otálvaro, C. M., Zapata Jaramillo, C. 
 
 NOT USED/ Bolshakov, I. A. & Gelbukh, A. (2004). *Computational Linguistics: Models, Resources, Applications*. Instituto Politécnico Nacional.
 
-
-
 NOT USED/ Bourigault, D. (1994). *Lexter: un Logiciel d'EXtraction de TERminologie: application à l'acquisition des connaissances à partir de textes*. PhD Thesis, Paris: EHESS.
-
 
 NOT USED/ Cabré, M. T. (1999). *Terminology: Theory, Methods and Applications*. Amsterdam: John Benjamins.
 
@@ -257,9 +251,7 @@ NOT USED/ Cabré, M. T. (2008). "Cómo las nuevas tecnologías han modificado la
 
 NOT USED/ Caballero, J. V. T. (1994). "Reflexiones sobre la terminología lingüístico-gramatical", *Cauce: Revista Internacional de Filología, Comunicación y sus Didácticas* 17, 83–106.
 
-
 NOT USED/ Carrè, R., Dégremont, J., Gross, M., Pierrel, J.-M. & Sabah, G. (1991). *Langage humain et machine*. CNRS.
-
 
 NOT USED/ Casas Gómez, M. (2003). "El documento terminológico: su estructura a propósito de la terminología lingüística", *Actas-I. VIII Simposio Internacional de Comunicación Social*. Santiago de Cuba.
 
@@ -279,21 +271,15 @@ NOT USED/ Chun, Y., Kim, M., Kim, D., Park, C. & Lim, H.-S. (2025). "Enhancing A
 
 Clinciu, M.-A., Eshghi, A. & Hastie, H. (2021). "A study of automatic metrics for the evaluation of natural language explanations", *Proceedings of the 16th Conference of the European Chapter of the Association for Computational Linguistics*, 2376–2387.
 
-
 NOT USED/ Conrado, M., Pardo, T. & Rezende, S. O. (2013). "A machine learning approach to automatic term extraction using a rich feature set", *Proceedings of the 2013 NAACL HLT student research workshop*, 16–23.
 
-
 NOT USED/ Crespo Miguel, M. (2020). "Lingüística digital: revisión de su estado actual y retos en el Instituto Universitario de Investigación en Lingüística Aplicada de la Universidad de Cádiz", *Pragmalingüística* 28, 148–165.
-
 
 da Silva Conrado, M., Felippo, A. D., Salgueiro Pardo, T. A. & Rezende, S. O. (2014). "A survey of automatic term extraction for Brazilian Portuguese", *Journal of the Brazilian Computer Society* 20/1, 12.
 
 NOT USED/ Daille, B. (2003). "Conceptual structuring through term variations", *Proceedings of the ACL 2003 workshop on Multiword expressions: analysis, acquisition and treatment*, 9–16.
 
-
 da Silva, B. C. D. (2006). "O estudo lingüístico-computacional da linguagem", *Letras de Hoje* 41/2.
-
-
 
 Depecker, L. (2005). "Contribution de la terminologie à la linguistique", *Langages* 157/1, 6–13.
 
@@ -311,20 +297,13 @@ NOT USED/ Duran Muñoz, I. (2011). *El trabajo ontoterminográfico aplicado a la
 
 NOT USED/ Egbert, J., Biber, D. & Gray, B. (2022). *Designing and Evaluating Language Corpora: A Practical Framework for Corpus Representativeness*. Cambridge University Press.
 
-
 NOT USED/ Estopa Bagot, R. (1999). "Eficiencia en la extracción automática de terminología", *Perspectives: Studies in Translatology* 7/2, 277–286.
-
 
 NOT USED/ Estopa Bagot, R. (2022). "Neología general y especializada", in *Neología del español: del uso al diccionario*. Iberoamericana.
 
-
-
 NOT USED/ Flowerdew, J. (1992). "Definitions in science lectures", *Applied Linguistics* 13/2, 202–221.
 
-
 NOT USED/ Fontenelle, T. (1990). "Automatic extraction of lexical-semantic relations from dictionary definitions", *Proceedings of EURALEX*.
-
-NOT USED/ Francis, N. W. (1992). "Language corpora B. C.", in *Directions in Corpus Linguistics. Proceedings of Nobel Symposium*. De Gruyter.
 
 Frantzi, K., Ananiadou, S. & Mima, H. (2000). "Automatic recognition of multi-word terms: the C-value/NC-value method", *International Journal on Digital Libraries* 3/2, 115–130.
 
@@ -332,13 +311,9 @@ NOT USED/ Frantzi, K. T. & Ananiadou, S. (1999). "The C-value/NC-value domain-in
 
 NOT USED/ Freixa, J. (2005). "Variación terminológica: ¿por qué y para qué?", *Meta* 50/4.
 
-NOT USED/ Gallistel, C. R. & King, A. P. (2011). *Memory and the Computational Brain: Why Cognitive Science will Transform Neuroscience*. John Wiley & Sons.
-
 Gao, Y., Xiong, Y., Gao, X., Jia, K., Pan, J., Bi, Y., Dai, Y., Sun, J. & Wang, H. (2023). "Retrieval-augmented generation for large language models: A survey", *arXiv:2312.10997*.
 
 NOT USED/ García-Miguel, J. M. (2022). "Lingüística de corpus: de los datos textuales a la teoría lingüística", *Estudios de lingüística del español* 45, 11–42.
-
-NOT USED/ Gavioli, L. (2005). *Exploring Corpora for ESP Learning*. John Benjamins.
 
 NOT USED/ Gelbukh, A. (2010). "Procesamiento de lenguaje natural y sus aplicaciones", *Komputer Sapiens* 1, 6–11.
 
@@ -348,37 +323,15 @@ NOT USED/ Golik, W., Bossy, R., Ratković, Z. & Nédellec, C. (2013). "Improving
 
 Gómez, M. C. & Smith, G. F. (2021). "El hablar y la variación de especialidad", in *Manual de lingüística del hablar*. Routledge.
 
-NOT USED/ González Fernández, A. (2018). "Aproximación a la Lingüística Computacional y sus herramientas para el trabajo con corpus", *Futhark. Revista de Investigación y Cultura* 13.
-
-NOT USED/ Greshman, R. (1986). *Computational Linguistics: An Introduction*. Cambridge University Press.
-
-NOT USED/ Gries, S. T. (2009). *Quantitative Corpus Linguistics with R: A Practical Introduction*. Routledge.
-
-NOT USED/ Gries, S. T. (2011). "Methodological and interdisciplinary stance in corpus linguistics", *Perspectives on Corpus Linguistics* 1/2, 81–98.
-
-NOT USED/ Gries, S. T. (2013). *Statistics for Linguistics with R: A Practical Introduction*. Walter de Gruyter.
-
 NOT USED/ Guerrero Ramos, G. (2017). *Nuevas Orientaciones de la Terminología y de la Neología en el Ámbito de la Semántica Léxica*. Servicio de Publicaciones de la Universidad de Navarra.
 
-NOT USED/ Gutiérrez Rodilla, B. M. (1998). "La ciencia empieza en la palabra", *Análisis e historia del lenguaje científico, Barcelona*. Península.
-
 NOT USED/ Hajicová, E., Abeillé, A., Hajic, J., Mírovský, J. & Uresová, Z. (2010). "Treebank Annotation", in *Handbook of Natural Language Processing*. CRC Press.
-
-NOT USED/ Hanoka-Maitenaz, V. (2015). *Extraction et Complètion de Terminologies Multilingues*. PhD Thesis, Sorbonne Paris Cité.
-
-NOT USED/ Heaps, H. S. (1978). *Information Retrieval: Computational and Theoretical Aspects*. Academic Press.
-
-NOT USED/ Herdan, G. (1964). *Quantitative Linguistics*. Butterworth Press.
 
 NOT USED/ Hernández, M. & Gómez, J. (2013). "Aplicaciones de procesamiento de lenguaje natural", *Revista Politécnica* 32, 87–96.
 
 NOT USED/ Heylen, K. & De Hertog, D. (2015). "Automatic term extraction", in *Handbook of Terminology*. John Benjamins Publishing Company.
 
 NOT USED/ Hirschberg, J. & Manning, C. D. (2015). "Advances in natural language processing", *Science* 349/6245, 261–266.
-
-NOT USED/ Hobbs, J. R. & Riloff, E. (2010). "Information Extraction", in *Handbook of Natural Language Processing*. CRC Press: Taylor & Francis Group.
-
-NOT USED/ Hutchins, J. (1999). "Retrospect and prospect in computer-based translation", *Proceedings of Machine Translation Summit VII*, 30–36.
 
 NOT USED/ Ijcai2020p560 (2020). "Fast and Accurate Neural CRF Constituency Parsing", *Proceedings of the Twenty-Ninth International Joint Conference on Artificial Intelligence*.
 
@@ -387,12 +340,6 @@ ISO (1988). *ISO/DIS 1087: Terminology Work -- Vocabulary*. International Organi
 NOT USED/ Jacquemin, C. & Bourigault, D. (2005). "Term extraction and automatic indexing", in *The Oxford Handbook of Computational Linguistics*. Oxford University Press.
 
 NOT USED/ Jacquemin, C. & Royaute, J. (1994). "Retrieving terms and their variants in a lexicalized unification-based framework", *Sigir* 94, 132–141.
-
-NOT USED/ Johnson, M. (2009). "How the statistical revolution changes (computational) linguistics", *Proceedings of the EACL 2009 workshop on the interaction between linguistics and computational linguistics*, 3–11.
-
-NOT USED/ Johnson, M. (2011). "How relevant is linguistics to computational linguistics?", *Linguistic Issues in Language Technology* 6.
-
-NOT USED/ Johnson, M. (2023). "Does machine learning really work?", *AI Magazine* 18/3, 11–11.
 
 NOT USED/ Johri, P., Khatri, S. K., Al-Taani, A. T., Sabharwal, M., Suvanov, S. & Kumar, A. (2021). "Natural language processing: History, evolution, application, and future work", *Proceedings of 3rd International Conference on Computing Informatics and Networks: ICCIN 2020*, 365–375.
 
@@ -568,8 +515,6 @@ NOT USED/ Valeria, C. V. de P., Qiyue, G., Pavel, K. & Lawrence, S. M. (2023). "
 
 Veyseh, A. P. B., Dernoncourt, F., Dou, D. & Nguyen, T. H. (2020). "A joint model for definition extraction with syntactic connection and semantic consistency", *Proceedings of the AAAI Conference on Artificial Intelligence* 34/05, 9098–9105.
 
-NOT USED/ Vieira, R. & Lima, V. L. S. (2001). "Linguística computacional: princípios e aplicações", *IX Escola de Informática da SBC-Sul*. SBC-Sul.
-
 NOT USED/ Vivaldi, J. & Rodríguez, H. (2011). "Extracting terminology from Wikipedia", *Procesamiento del lenguaje natural* 47, 65–73.
 
 NOT USED/ Weaver, W. (1949). "Translation". Memorandum, Rockefeller Foundation.
@@ -579,11 +524,3 @@ Wüster, E. (1979). *Einführung in die Allgemeine Terminologielehre und Termino
 NOT USED/ Zamora Rey, J. (2024). *Aproximación a la Generación Automática de Definiciones Terminológicas*. B.S. Thesis.
 
 Zhang, T., Kishore, V., Wu, F., Weinberger, K. Q. & Artzi, Y. (2019). "BERTScore: Evaluating Text Generation with BERT", *arXiv:1904.09675*.
-
-NOT USED/ Zhang, X., Song, Y. & Fang, A. C. (2010). "Term Recognition Using Conditional Random Fields", *Proceedings of the 6th International Conference on Natural Language Processing and Knowledge Engineering*, 1–6.
-
-NOT USED/ Zhang, Y., Zhou, H. & Li, Z. (2020). "Fast and Accurate Neural CRF Constituency Parsing", *Proceedings of the Twenty-Ninth International Joint Conference on Artificial Intelligence*, 4046–4053.
-
-NOT USED/ Zheng, D., Zhao, T. & Yang, J. (2009). "Research on Domain Term Extraction Based on Conditional Random Fields", *Computer Processing of Oriental Languages. Language Technology for the Knowledge-based Economy*, 237–248.
-
-NOT USED/ Zipf, G. K. (1949). *Human Behavior and the Principle of Least Effort: An Introduction to Human Ecology*. Addison-Wesley.
