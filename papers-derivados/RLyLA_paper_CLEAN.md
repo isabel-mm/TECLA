@@ -196,9 +196,14 @@ The case of *significance test* (item 15 of 15) illustrates the opposite outcome
 
 **Automatic Metrics Evaluation.** Beyond expert ratings, we evaluated generated definitions against the human reference using six automatic metrics. These fall into three categories:
 
-1. **Lexical-overlap metrics** (BLEU, ROUGE-L): Count how many words or phrases the generated definition shares with the human reference. BLEU scores word overlaps (0–1 scale); ROUGE-L scores longest common subsequences. *Intuition:* if a generated definition reuses the same words as the reference, these metrics score high. *Limitation:* they don't measure meaning—two sentences with identical meaning but different words score low.
+1. **Lexical-overlap metrics** (BLEU, ROUGE-L): Count how many words or phrases the generated definition shares with the human reference. 
+   - **BLEU**: Matches n-grams (word sequences) between generated and reference. Formula: BLEU = (# matching n-grams) / (# total n-grams in generated text). Ranges 0–1.
+   - **ROUGE-L**: Finds the longest sequence of words appearing in both texts. Formula: ROUGE-L = (2 × precision × recall) / (precision + recall), where precision = longest match / generated length, recall = longest match / reference length.
+   - *Intuition:* if a generated definition reuses the same words as the reference, these metrics score high. *Limitation:* they don't measure meaning—two sentences with identical meaning but different words score low.
 
-2. **Semantic similarity metrics** (BERTScore F1, cosine similarity): Compare the semantic content (meaning) rather than exact words. Both convert sentences to mathematical vectors representing meaning, then measure how close those vectors are. *Intuition:* if a generated definition means roughly the same thing as the reference (paraphrased), these metrics score it higher than lexical-overlap metrics. *Limitation:* they measure topical similarity, not factual correctness.
+2. **Semantic similarity metrics** (BERTScore F1, cosine similarity): Compare the semantic content (meaning) rather than exact words. Both convert sentences to mathematical vectors representing meaning, then measure how close those vectors are.
+   - **Cosine Similarity**: Formula: cos(θ) = (v₁ · v₂) / (||v₁|| × ||v₂||), where v₁ and v₂ are vectors. Ranges −1 to +1; higher = more similar meaning.
+   - *Intuition:* if a generated definition means roughly the same thing as the reference (paraphrased), these metrics score it higher than lexical-overlap metrics. *Limitation:* they measure topical similarity, not factual correctness.
 
 3. **Reference-free metrics** (BLEURT, BARTScore): Don't compare to a human reference at all. They estimate definition quality directly using neural models trained to predict human judgments. *Intuition:* they attempt to score "goodness" without needing a reference definition. *Limitation:* they're black-box systems—we can't easily interpret why they gave a certain score.
 
@@ -220,7 +225,11 @@ Table 3 reports results across all four models and both conditions (RAG vs. no-R
 
 The results reveal striking divergence. Lexical-overlap metrics (BLEU, ROUGE-L) produce minimal scores (M = 0.03, 0.18) and actually *decrease* under RAG—a paradoxical result reflecting that grounding nudges the model away from surface-level mimicry toward semantically-grounded paraphrase. BERTScore F1 remains static (M ≈ 0.88) across conditions, suggesting it conflates surface similarity with semantic adequacy. Cosine similarity shows the most consistent RAG effect: a modest but statistically significant rise from 0.576 to 0.606 (*p* < 0.05, paired t-test), indicating that grounding does nudge definitions toward greater topical proximity to the reference.
 
-Critically, we computed **Spearman rank correlations** between automatic metrics and expert *preference* (LLM vs. Human choice) across all 15 terms. Spearman correlation measures whether two rankings align (if metrics rank definitions the same way experts do). It ranges from −1 (perfect disagreement) to +1 (perfect agreement); 0 means no relationship. The *p*-value tests whether the correlation is statistically significant (p < 0.05 suggests the correlation is real, not by chance; p > 0.05 suggests it's noise).
+Critically, we computed **Spearman rank correlations** between automatic metrics and expert *preference* (LLM vs. Human choice) across all 15 terms. Spearman correlation measures whether two rankings align (if metrics rank definitions the same way experts do). 
+
+Formula: ρ = 1 − (6 × Σd²) / (n × (n² − 1)), where d = difference in rankings, n = number of items. Ranges from −1 (perfect disagreement) to +1 (perfect agreement); 0 means no relationship. 
+
+The *p*-value tests whether the correlation is statistically significant (p < 0.05 suggests the correlation is real, not by chance; p > 0.05 suggests it's noise).
 
 Results are striking: BERTScore F1 (*ρ* = −0.18, *p* = 0.51), cosine similarity (*ρ* = 0.21, *p* = 0.43), BLEU (*ρ* = 0.04, *p* = 0.89), ROUGE-L (*ρ* = 0.12, *p* = 0.65), BLEURT (*ρ* = 0.19, *p* = 0.48), and BARTScore (*ρ* = 0.08, *p* = 0.76). All correlations are near-zero with p > 0.05, meaning **no significant relationship**: the metrics do not predict expert preference. This systematic misalignment is the study's core finding regarding automatic evaluation.
 
