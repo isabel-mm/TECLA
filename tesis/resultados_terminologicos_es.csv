@@ -1,0 +1,7 @@
+Métrica,Valor,Interpretación
+Saturación — β (Heaps),0.90,Vocabulario en crecimiento moderado-alto
+Masa textual — ratio de hápax,41.0%,Moderada; esperable en corpus académico
+Dispersión — DP medio (top-50),1.00,Concentración moderada; homogeneidad temática
+Estabilidad bootstrap (top-30),1.00,Rankings terminológicos robustos
+Cobertura externa (recall),63.2%,24-25 de 38 términos identificados
+ITR,73/100,Representativo
