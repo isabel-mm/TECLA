@@ -608,14 +608,16 @@ Para cada holdout y cada idioma, verificamos explícitamente:
 
 ### 5.2.1 Comparación CRF vs BiLSTM
 
-**Tabla 5.1: CRF Rendimiento**
+**Tabla 5.1: CRF Rendimiento (EN)**
 
-| Holdout | Train Tokens | Test Tokens | Token F1 | Precision | Recall |
-|---------|--------------|-------------|----------|-----------|--------|
-| 10% | 21,529 | 284,759 | 0.1564 | 0.4969 | 0.1507 |
-| 20% | 9,868 | 296,407 | 0.3406 | 0.6748 | 0.3267 |
-| 30% | 7,101 | 299,187 | 0.3338 | 0.6077 | 0.3357 |
-| 50% | 5,255 | 301,033 | 0.6761 | 0.7140 | 0.7728 |
+| Holdout | Train Tokens | Test Tokens | F1 (95% CI) | Precision | Recall |
+|---------|--------------|-------------|-------------|-----------|--------|
+| 10% | 21,529 | 284,759 | 0.1564 ± 0.0013 | 0.4969 | 0.1507 |
+| 20% | 9,868 | 296,407 | 0.3406 ± 0.0017 | 0.6748 | 0.3267 |
+| 30% | 7,101 | 299,187 | 0.3338 ± 0.0017 | 0.6077 | 0.3357 |
+| 50% | 5,255 | 301,033 | 0.6761 ± 0.0017 | 0.7140 | 0.7728 |
+
+*Nota: Los intervalos de confianza se calcularon usando CI = 1.96 × √(F1(1-F1)/N) basado en el tamaño del conjunto de test.*
 
 **Tabla 5.2: BiLSTM Rendimiento**
 
@@ -693,12 +695,14 @@ Si BiLSTM generaliza (hipótesis de propuesta):
 
 **Tabla 5.3: CRF Rendimiento (ES)**
 
-| Holdout | Train Tokens | Test Tokens | Token F1 | Precision | Recall |
-|---------|--------------|-------------|----------|-----------|--------|
-| 10% | 595,573 | 359,370 | 0.4775 | 0.8395 | 0.3874 |
-| 20% | 272,352 | 682,591 | 0.7569 | 0.8281 | 0.8251 |
-| 30% | 269,678 | 685,265 | 0.7881 | 0.8388 | 0.8359 |
-| 50% | 244,616 | 710,327 | 0.7694 | 0.8279 | 0.8271 |
+| Holdout | Train Tokens | Test Tokens | F1 (95% CI) | Precision | Recall |
+|---------|--------------|-------------|-------------|-----------|--------|
+| 10% | 595,573 | 359,370 | 0.4775 ± 0.0016 | 0.8395 | 0.3874 |
+| 20% | 272,352 | 682,591 | 0.7569 ± 0.0010 | 0.8281 | 0.8251 |
+| 30% | 269,678 | 685,265 | 0.7881 ± 0.0010 | 0.8388 | 0.8359 |
+| 50% | 244,616 | 710,327 | 0.7694 ± 0.0010 | 0.8279 | 0.8271 |
+
+*Nota: Los intervalos de confianza se calcularon usando CI = 1.96 × √(F1(1-F1)/N) basado en el tamaño del conjunto de test.*
 
 **Tabla 5.4: BiLSTM Rendimiento (ES)**
 
