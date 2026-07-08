@@ -1,0 +1,44 @@
+Device: cpu
+
+================================================================================
+BiLSTM-CRF VALIDATION ON ACTER
+================================================================================
+
+[1/2] Training BiLSTM-CRF on our English corpus...
+  Loaded 9667 sequences
+Training BiLSTM-CRF: 9667 sequences, 10000 vocab
+  Epoch 5/10: loss=-673317.2574
+  Epoch 10/10: loss=-1403499.0590
+
+[2/2] Validating on ACTER domains (zero-shot)...
+
+  Domain: CORP
+  Cargando modelo spaCy en_core_web_lg…
+    Tokens: 50845, Terms (B-T): 4180
+    Precision=0.7634, Recall=0.8737, F1=0.8149
+
+  Domain: EQUI
+    Tokens: 58203, Terms (B-T): 8662
+    Precision=0.6689, Recall=0.8178, F1=0.7359
+
+  Domain: HTFL
+    Tokens: 55467, Terms (B-T): 9636
+    Precision=0.5470, Recall=0.7396, F1=0.6289
+
+  Domain: WIND
+    Tokens: 8525, Terms (B-T): 862
+    Precision=0.7103, Recall=0.8428, F1=0.7709
+
+================================================================================
+SUMMARY: BiLSTM-CRF Zero-shot on ACTER
+================================================================================
+
+Domain  N_terms  Precision   Recall       F1
+  corp     4180   0.763441 0.873714 0.814864
+  equi     8662   0.668870 0.817844 0.735893
+  htfl     9636   0.547048 0.739611 0.628920
+  wind      862   0.710338 0.842815 0.770926
+
+Average F1: 0.7377
+vs CRF baseline F1: ~0.050
+Improvement: +1375.3%
