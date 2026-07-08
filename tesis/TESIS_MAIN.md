@@ -261,16 +261,105 @@ Embedding (80-dim) → BiLSTM (2 capas, 200 hidden) → FC (400→3) → CRF Vit
 - Fully Connected (400 → 3)
 - CRF layer con Viterbi decoding
 
-## 3.4 Protocolo de Evaluación: Holdout de Términos
+## 3.4 Protocolo de Evaluación: Holdout de Términos (Correcto: Span-Level)
 
 **Justificación:**
-K-fold CV tradicional permite memorización (término aparece en train Y test). Holdout de términos fuerza generalización verdadera.
+K-fold CV tradicional permite memorización (término aparece en train Y test). Holdout de términos fuerza generalización verdadera. Sin embargo, el holdout debe operar a nivel de SPANS (términos multipalabra completos), no a nivel de TOKENS (palabras individuales).
 
-**Procedimiento:**
-1. Estratificar términos (raros, medios, comunes)
-2. Holdout balanceado progresivo (10%, 20%, 30%, 50%)
-3. Train: términos excluidos del entrenamiento
-4. Test: SOLO términos nuevos (nunca vistos)
+### 3.4.1 El Problema: Holdout Token-Level (Incorrecto)
+
+El enfoque naive excluye TOKENS individuales:
+
+```python
+# ❌ INCORRECTO
+term_tokens = df[df['label_bio'].isin(['B-T', 'I-T'])]['token'].str.lower()
+train = df[~df['token'].str.lower().isin(holdout_tokens)]
+test = df[df['token'].str.lower().isin(holdout_tokens)]
+```
+
+**Problema:** Para un término multipalabra como "computational semantics":
+- Excluye: TODOS los "computational" + TODOS los "semantics"
+- Efecto: El token "computational" aparece en otros contextos (ej: "computational morphology") en el entrenamiento
+- Resultado: Data leakage. El modelo PUEDE memorizar el token, no necesita generalizar el SPAN.
+
+**Ejemplo:**
+```
+Término holdout: "computational semantics"
+
+TRAIN contiene:
+  "We use computational morphology here"      ← "computational" aparece
+  "In computational approaches ..."           ← "computational" aparece
+  
+TEST contiene:
+  "In computational semantics here"           ← "computational" + "semantics" juntos
+
+Problema: El token "computational" ya fue visto en TRAIN
+→ Data leakage (no es un holdout verdadero)
+```
+
+### 3.4.2 La Solución: Holdout Span-Level (Correcto)
+
+El enfoque riguroso excluye SENTENCIAS ENTERAS que contienen el SPAN:
+
+```python
+# ✅ CORRECTO
+spans = extract_term_spans()  # [("computational", "semantics"), ...]
+holdout_sentences = get_sentences_with_spans(spans, pct=50)
+train = df[~df['sentence_id'].isin(holdout_sentences)]
+test = df[df['sentence_id'].isin(holdout_sentences)]
+```
+
+**Solución:** Para el mismo término "computational semantics":
+- Excluye: SENTENCIAS COMPLETAS que contienen el span
+- Efecto: El token "computational" SIGUE disponible en otros contextos (ej: "computational morphology")
+- Resultado: NO hay data leakage. El modelo debe GENERALIZAR el patrón contextual.
+
+**Ejemplo:**
+```
+Término holdout: "computational semantics" (en sentencia 5)
+
+TRAIN contiene:
+  Sent 1: "We use computational morphology here"      ← "computational" aparece
+  Sent 2: "In computational approaches ..."           ← "computational" aparece
+  Sent 3-4: (otras sentencias sin el span)
+  
+TEST contiene:
+  Sent 5: "In computational semantics here"           ← span completo
+
+Ventaja: "computational semantics" NUNCA aparece juntos en TRAIN
+→ NO hay data leakage (holdout verdadero)
+```
+
+### 3.4.3 Procedimiento (Span-Level)
+
+1. **Extraer term spans:** Identificar secuencias de B-T, I-T, I-T, ... como unidades atómicas
+2. **Estratificar:** Categorizar por frecuencia (raros <10, medium 10-50, comunes >50)
+3. **Seleccionar:** Elegir {pct}% de cada estrato para holdout
+4. **Excluir sentencias:** Remover SENTENCIAS COMPLETAS que contienen esos spans
+5. **Dividir:** Train (sin esas sentencias), Test (solo esas sentencias)
+6. **Validar:** Verificar que ningún span test aparece en train
+
+### 3.4.4 Holdout Balanceado Progresivo
+
+Se aplica el protocolo para múltiples niveles de dificultad:
+
+```
+Holdout 10%: Seleccionar 10% de términos de cada estrato → Fácil
+Holdout 20%: Seleccionar 20% de términos de cada estrato → Medio
+Holdout 30%: Seleccionar 30% de términos de cada estrato → Difícil
+Holdout 50%: Seleccionar 50% de términos de cada estrato → Muy difícil
+
+Resultado: Curva de aprendizaje que muestra memorización vs generalización
+```
+
+### 3.4.5 Validación: No Data Leakage
+
+Para cada holdout, verificamos que:
+- ✅ Ningún term span en test aparece en train
+- ✅ Tokens individuales SÍ pueden aparecer (esto es correcto)
+- ✅ Distribución de entrenamiento NO está distorsionada
+
+**Conclusión:** El protocolo span-level garantiza evaluación rigurosa sin data leakage.
 
 ## 3.5 Validación Externa: ACTER Dataset
 
