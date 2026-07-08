@@ -1,0 +1,8 @@
+Dominio,N_Terminos,Precision,Recall,F1,Status
+corp,4180,0.7634,0.8737,0.8149,Excelente
+equi,8662,0.6689,0.8178,0.7359,Muy_bueno
+htfl,9636,0.5470,0.7396,0.6289,Bueno
+wind,862,0.7103,0.8428,0.7709,Muy_bueno
+PROMEDIO,-,0.6724,0.8185,0.7377,VERIFICADO
+CRF_Baseline,-,-,-,0.0500,Memoriza
+Mejora_Relativa,-,-,-,1375.3%,BiLSTM_Gana
