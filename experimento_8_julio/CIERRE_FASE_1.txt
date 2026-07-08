@@ -1,0 +1,162 @@
+═══════════════════════════════════════════════════════════════════════════════
+FASE 1: DIAGNÓSTICO - CIERRE
+═══════════════════════════════════════════════════════════════════════════════
+Fecha: 8 Julio 2026 - 14:55 UTC
+Investigador: Isabel Moyano
+Estado: PARCIALMENTE COMPLETADO (60%)
+
+═══════════════════════════════════════════════════════════════════════════════
+DOCUMENTOS CRÍTICOS GENERADOS
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ DOCUMENTACIÓN COMPLETA DISPONIBLE EN:
+
+Resumen Ejecutivo:
+  → FASE_1_RESUMEN_EJECUTIVO.md (Lee primero - 15 min)
+
+Hallazgos Detallados:
+  → 03_metrics_verification/HALLAZGOS_FASE1.json (JSON trazable)
+  → 03_metrics_verification/FASE_1_DIAGNOSTICO_ESTADO.md (Técnico)
+
+Seguimiento:
+  → PROGRESS_TRACKING.md (Timeline y checklist)
+  → INDEX.md (Índice maestro - LEER PARA ORIENTARSE)
+
+═══════════════════════════════════════════════════════════════════════════════
+HALLAZGOS PRINCIPALES
+═══════════════════════════════════════════════════════════════════════════════
+
+1. BiLSTM 0.738 NO TIENE DOCUMENTACIÓN
+   └─ Status: ❌ CRÍTICO
+   └─ Impacto: Invalida comparación principal
+   └─ Acción: Recalcular HOY
+
+2. CRF ACTER F1 Discrepancia (0.025 vs 0.050 reportado)
+   └─ Status: ⚠️ ALTO
+   └─ Impacto: Sugiere error en cálculo
+   └─ Acción: Investigar HOY
+
+3. TODAS las Métricas son Token-Level (no Entity-Level)
+   └─ Status: ⚠️ ALTO
+   └─ Impacto: Potencialmente engañoso para ATE
+   └─ Acción: Implementar seqeval HOY/MAÑANA
+
+4. Holdout Protocol Está Flawed (tokens, no spans)
+   └─ Status: ❌ CRÍTICO (crítica revisor #1)
+   └─ Impacto: Invalida metodología
+   └─ Acción: Reimplementar FASE 2
+
+═══════════════════════════════════════════════════════════════════════════════
+NÚMEROS VERIFICADOS
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ Same-Domain (4/4 verificados):
+   CRF EN:    0.6761 ✓
+   CRF ES:    0.7694 ✓
+   BiLSTM EN: 0.6748 ✓
+   BiLSTM ES: 0.7190 ✓
+
+❌ Cross-Domain (0/2 verificados):
+   BiLSTM ACTER: 0.738 (sin documentación)
+   CRF ACTER:    0.025 (reportado como 0.050)
+
+═══════════════════════════════════════════════════════════════════════════════
+ACCIONES COMPLETADAS EN FASE 1
+═══════════════════════════════════════════════════════════════════════════════
+
+SCRIPTS EJECUTADOS:
+  ✅ diagnose_metrics.py
+  ✅ recalculate_all_metrics.py
+  ✅ evaluate_bilstm_acter.py (parcial)
+
+DOCUMENTOS GENERADOS:
+  ✅ diagnostic_report.json
+  ✅ recalculation_report.json
+  ✅ bilstm_acter_training_log.json
+  ✅ FASE_1_RESUMEN_EJECUTIVO.md
+  ✅ HALLAZGOS_FASE1.json
+  ✅ FASE_1_DIAGNOSTICO_ESTADO.md
+  ✅ PROGRESS_TRACKING.md
+  ✅ INDEX.md
+
+═══════════════════════════════════════════════════════════════════════════════
+ACCIONES CRÍTICAS PENDIENTES (ANTES DE CONTINUAR)
+═══════════════════════════════════════════════════════════════════════════════
+
+⏳ TODAVÍA EN ESTA FASE - Completar HOY:
+
+1. Ejecutar BiLSTM ACTER evaluation completo
+   Archivo: evaluate_bilstm_acter.py
+   Salida esperada: bilstm_acter_token_level.csv
+   Objetivo: Verificar si F1=0.738 es correcto
+
+2. Investigar discrepancia CRF ACTER
+   Encontrado: F1=0.025 (en CSV)
+   Reportado: F1=0.050 (en presentación)
+   Objetivo: Documentar qué averaging se usó
+
+3. Implementar Entity-Level F1 (seqeval)
+   Para: Todos los modelos (CRF EN/ES, BiLSTM EN/ES, ACTER)
+   Objetivo: Obtener números correctos para ATE
+
+═══════════════════════════════════════════════════════════════════════════════
+TABLA DE ESTADO ACTUAL
+═══════════════════════════════════════════════════════════════════════════════
+
+Fase 1: Diagnóstico
+  ✅ Diagnóstico inicial (COMPLETADO)
+  ✅ Verificación same-domain (COMPLETADO)
+  ✅ Búsqueda datos cross-domain (COMPLETADO)
+  ✅ Documentación hallazgos (COMPLETADO)
+  ⏳ Ejecución BiLSTM ACTER (EN PROGRESO)
+  ⏳ Investigación discrepancias (EN PROGRESO)
+  ⏳ Entity-level F1 (NO INICIADO)
+  ⏳ Reporte final Fase 1 (NO INICIADO)
+
+ESTADO GLOBAL: 10% del proyecto completado
+             Fase 1: 60% completada
+
+═══════════════════════════════════════════════════════════════════════════════
+PRÓXIMOS PASOS (INMEDIATOS)
+═══════════════════════════════════════════════════════════════════════════════
+
+AHORA MISMO:
+  1. Ejecutar BiLSTM ACTER evaluation
+  2. Guardar resultados en CSV
+  3. Documentar discrepancia CRF
+
+HOY (Tarde):
+  4. Implementar entity-level F1
+  5. Recalcular todos los números
+  6. Completar Fase 1
+
+MAÑANA:
+  7. Iniciar Fase 2: Holdout Protocol repair
+  8. Continuar Fase 3: Métricas claras
+
+═══════════════════════════════════════════════════════════════════════════════
+RECOMENDACIÓN PARA ISABEL
+═══════════════════════════════════════════════════════════════════════════════
+
+La Fase 1 ha logrado sus objetivos principales:
+✅ Identificar inconsistencias
+✅ Documentar hallazgos
+✅ Crear scripts reproducibles
+✅ Generar archivos trazables
+
+Próximo paso recomendado:
+→ Ejecutar BiLSTM ACTER evaluation completo (archivo: evaluate_bilstm_acter.py)
+→ Esto es CRÍTICO antes de continuar
+
+Una vez completo, tendremos:
+• Número 0.738 verificado (o refutado)
+• Discrepancia CRF explicada
+• Base sólida para entity-level F1
+
+Todo está documentado en:
+→ experimento_8_julio/INDEX.md (punto de entrada)
+→ experimento_8_julio/HALLAZGOS_FASE1.json (detalles técnicos)
+
+═══════════════════════════════════════════════════════════════════════════════
+FIN FASE 1 - CIERRE: 2026-07-08 14:55 UTC
+═══════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,11 @@
+# Estructura para BiLSTM ACTER Token-Level Evaluation
+# Generado: 2026-07-08T11:10:27.943641
+# Status: PENDIENTE - Requiere datos ACTER
+# Número reportado: F1 = 0.738 (sin fuente documentada)
+
+Dominio_test,N_terms,Precision,Recall,F1,Status
+corp,(datos ACTER),[PENDIENTE],[PENDIENTE],[PENDIENTE],Awaiting ACTER data
+equi,(datos ACTER),[PENDIENTE],[PENDIENTE],[PENDIENTE],Awaiting ACTER data
+htfl,(datos ACTER),[PENDIENTE],[PENDIENTE],[PENDIENTE],Awaiting ACTER data
+wind,(datos ACTER),[PENDIENTE],[PENDIENTE],[PENDIENTE],Awaiting ACTER data
+PROMEDIO,,[PENDING],[PENDING],[PENDING],Reported: 0.738
