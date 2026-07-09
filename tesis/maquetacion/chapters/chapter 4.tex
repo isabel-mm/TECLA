@@ -923,6 +923,20 @@ La identificación automática de unidades terminológicas puede abordarse desde
 \label{subsec:clasificadores_tokenbase}
 
 El enfoque más intuitivo para la detección de términos es tratar cada token como una instancia de clasificación binaria (\textit{término} vs.\ \textit{no-término}) mediante algoritmos estándar de aprendizaje supervisado: regresión logística, bosques aleatorios (Random Forest), máquinas de vectores de soporte (SVM) o redes neuronales densas. Estos clasificadores operan sobre vectores de rasgos (features) asociados a cada token ---categoría gramatical, frecuencia, contexto distribucional, etc.--- y predicen una etiqueta de clase.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\linewidth]{images/nlp-classifier-svm.png}
+    \caption{Representación visual de SVM para clasificación binaria de términos: separación del espacio de features en dos clases con margen máximo. SVM fue evaluado junto con LogisticRegression y RandomForest en este trabajo.}
+    \label{fig:svm_classifier}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\linewidth]{images/nlp-classifier.png}
+    \caption{Arquitectura general de clasificadores token-based: feature extraction (token, POS, context) → feature vector → classifier → label prediction. Este esquema es usado por LogisticRegression, RandomForest, y SVM.}
+    \label{fig:token_classifier_arch}
+\end{figure}
 
 \paragraph{Por qué parecen funcionar.}
 En un esquema de validación cruzada (cross-validation) tradicional sobre datos token-anotados, estos clasificadores token-based pueden alcanzar valores de F1 de 0{,}70--0{,}80 o incluso superiores. El motivo es que muchos tokens denominan la \emph{misma} unidad terminológica a lo largo del corpus: si la palabra ``corpus'' aparece 13\,767 veces en el subcorpus inglés, un clasificador que haya visto cientos de ocurrencias de ``corpus'' etiquetadas como término en el conjunto de entrenamiento puede memorizar simplemente el patrón \textit{palabra = ``corpus''} $\rightarrow$ \textit{etiqueta = término}, sin necesidad de aprender rasgos contextuales más generales.
@@ -1113,6 +1127,13 @@ Quantitative Semantics & 0{,}7501 & $\pm 0{,}0022$ \\
 \end{table}
 
 El rendimiento promedio en ACTER (0{,}76) es ligeramente inferior al del holdout span-level en TECLA (0{,}82--0{,}96), pero la diferencia es coherente con la dificultad de transferencia cross-domain: dominios nuevos introducen vocabulario desconocido y patrones sintácticos distintos. Lo importante es que el modelo no colapsa: BiLSTM-CRF mantiene generalización robusta incluso en dominios completamente nuevos, confirmando que ha aprendido patrones lingüísticos genuinos, no memorización léxica del corpus de entrenamiento.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\linewidth]{images/pca_palabras.png}
+    \caption{Análisis PCA de embeddings de palabras en el espacio terminológico: proyección 2D mostrando clustering de términos por similitud distribucional. Términos con contextos similares (e.g., tipos de corpus) se agrupan automáticamente.}
+    \label{fig:pca_embeddings}
+\end{figure}
 
 \paragraph{Conclusión.}
 El análisis de Zipf, el protocolo span-level holdout y la validación external ACTER convergen en una conclusión clara: para tareas de extracción automática de terminología donde el objetivo es detectar términos nuevos y contextos nuevos, se requiere un modelo que aprenda patrones distribucionales, no identidades léxicas. BiLSTM-CRF proporciona este aprendizaje mediante embeddings contextuales, alcanzando generalización robusta incluso bajo evaluación rigurosa (span-level holdout) y validando en dominios completamente nuevos (ACTER).
@@ -1361,6 +1382,13 @@ La sección siguiente traslada el foco desde la caracterización del inventario 
 
 La librería TECLA (\textit{Term Extraction and Corpus Linguistics Application}) se articula como una estación de trabajo integral para lingüistas y especialistas en terminología que deseen abordar de forma sistemática el análisis terminológico a partir de la explotación de corpus. Su diseño responde a la necesidad de contar con un entorno unificado que reúna en un único sistema todas las fases del trabajo terminológico automatizado: desde la compilación y descripción del corpus hasta la extracción de candidatos, la evaluación de la representatividad terminológica y la detección supervisada de unidades terminológicas. El objetivo es proporcionar una herramienta flexible, transparente y accesible que combine metodologías lingüísticas y computacionales sin renunciar a los principios de interpretabilidad, trazabilidad y control por parte del investigador. Frente a estrategias fragmentadas o centradas exclusivamente en criterios estadísticos, TECLA integra tanto enfoques basados en reglas lingüísticas como métricas distribucionales, permitiendo articular flujos completos de trabajo terminológico con salida replicable y personalizable.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{images/terminografia_workflow.png}
+    \caption{Flujo de trabajo terminográfico integrado en TECLA: desde corpus → extracción híbrida → clasificación supervisada → glosario bilingüe. Cada componente es modular e intercambiable.}
+    \label{fig:terminografia_workflow}
+\end{figure}
+
 \subsection{Arquitectura}
 \label{subsec:arquitectura_tecla}
 
@@ -1470,6 +1498,13 @@ El módulo permite asimismo cargar una \textbf{lista de referencia terminológic
 \subsubsection*{Módulo 4. Clasificación supervisada}
 
 Este módulo permite entrenar clasificadores automáticos de detección terminológica a partir de un corpus anotado mediante la codificación BIO. El flujo metodológico incluye la extracción de rasgos lingüísticos y distribucionales para cada token del corpus, la organización de los datos de entrenamiento y evaluación mediante particiones cruzadas por documento, y la aplicación de algoritmos de aprendizaje supervisado. Los detalles del espacio de rasgos, los algoritmos implementados, la estrategia de evaluación y los resultados obtenidos en el corpus del presente trabajo se describen en detalle en la sección anterior (\S\ref{sec:modelo_tc}). En el contexto del flujo de trabajo de TECLA, este módulo ocupa la posición final de la cadena: el \textit{Silver Standard} producido por el módulo de extracción sirve como punto de partida para la anotación supervisada, y el clasificador resultante puede aplicarse como un filtro adicional de alta precisión sobre nuevos corpus del mismo dominio.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{images/sample-doccano.png}
+    \caption{Interfaz de anotación Doccano utilizada para la validación experta y ampliación del corpus. Muestra la anotación BIO interactiva de fragmentos con highlighting de términos identificados.}
+    \label{fig:doccano_interface}
+\end{figure}
 
 \paragraph{Disponibilidad en el release.} El módulo de clasificación supervisada, incluyendo la implementación de redes CRF y BiLSTM-CRF, forma parte integral del código fuente de TECLA y fundamenta los resultados de evaluación del presente trabajo. Sin embargo, su distribución en el release público se ha circunscrito al código fuente documentado sin incluir los pesos preentrenados de los modelos. Esta decisión responde a consideraciones prácticas: (i) los modelos neuronales BiLSTM entrenan sobre GPU y requieren dependencias adicionales (PyTorch, CRFsuite compilado) que aumentan significativamente el peso de instalación y la complejidad de configuración; (ii) el público objetivo de la herramienta (investigadores en lingüística, terminólogos, lingüistas computacionales sin experiencia en deep learning) puede extraer terminología con alta calidad mediante los módulos 1--3 sin necesidad de entrenar clasificadores; (iii) la calibración de estos modelos es dominio-dependiente y requiere anotación manual, por lo que un release con modelos preentrenados sería engañoso en su generalización a nuevos domios. El release estable de TECLA se enfoca, por tanto, en consolidar los módulos de extracción no supervisada (módulo 2), evaluación de representatividad (módulo 3) e interfaz de usuario, que ofrecen la máxima relación entre utilidad y accesibilidad. Los investigadores interesados en reproducir los experimentos de clasificación supervisada pueden consultar la documentación del repositorio para instrucciones de instalación de dependencias opcionales y reproducción del pipeline completo.
 
