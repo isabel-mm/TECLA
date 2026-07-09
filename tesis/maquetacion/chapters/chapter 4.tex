@@ -1013,6 +1013,14 @@ Los resultados fueron dramáticos y revelan el alcance del problema de memorizac
 \end{tabular}
 \end{table}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{images/confidence_intervals.png}
+    \caption{Intervalos de confianza 95\% de rendimiento en modelos: (izq) comparativa de arquitecturas en CV estándar; (der) evolución de F1 bajo holdout span-level progresivo. BiLSTM-CRF mantiene estabilidad incluso con 50\% holdout, mientras CRF colapsa drásticamente.}
+    \label{fig:confidence_intervals}
+\end{figure}
+
+
 El patrón es claro: cuando los términos holdout son pocos (10\%), el F1 se colapsa a $\approx 0{,}15$--0{,}48. A medida que el holdout aumenta (50\%), el F1 se recupera ($\approx 0{,}67$--0{,}77). ¿Por qué? Porque con holdout del 50\%, los términos restantes en test son suficientemente frecuentes como para que el modelo haya visto instancias similares en train. Con 10\% de holdout, los términos test son exactamente aquellos que el modelo nunca ha visto: el F1 bajo refleja un fracaso genuino de generalización.
 
 \subsection{El problema de Zipfian tail: por qué CRF no puede aprender}
@@ -1126,6 +1134,13 @@ Quantitative Semantics & 0{,}7501 & $\pm 0{,}0022$ \\
 \end{tabular}
 \end{table}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{images/confusion_matrices.png}
+    \caption{Matrices de confusión: clasificación token-level en CV estándar. BiLSTM-CRF minimiza falsos negativos (85-95 casos) vs CRF (312-420), reflejando su superior recall. La asimetría muestra proporción desbalanceada de tokens no-término vs término en el corpus.}
+    \label{fig:confusion_matrices}
+\end{figure}
+
 El rendimiento promedio en ACTER (0{,}76) es ligeramente inferior al del holdout span-level en TECLA (0{,}82--0{,}96), pero la diferencia es coherente con la dificultad de transferencia cross-domain: dominios nuevos introducen vocabulario desconocido y patrones sintácticos distintos. Lo importante es que el modelo no colapsa: BiLSTM-CRF mantiene generalización robusta incluso en dominios completamente nuevos, confirmando que ha aprendido patrones lingüísticos genuinos, no memorización léxica del corpus de entrenamiento.
 
 \begin{figure}[H]
@@ -1212,6 +1227,13 @@ Con CD operacionalizada como dispersión documental, esto refleja una estructura
 Este resultado alinea conceptualmente con la literatura: Repar et al. (2025), en ablación controlada sobre RSDO5 esloveno, hallan que las features contextuales (tópicos, patrones) mantienen F1~0{,}35--0{,}49 incluso cuando se remueven features estadísticas (que caen a F1~0), confirmando que rasgos contextuales son más robustos en bajo-recurso/no-visto. La novedad aquí es cuantificar esta robustez explícitamente mediante partición seen/unseen.
 
 \paragraph{Validación estadística: Predicción de términos no vistos por familia de rasgo.}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{images/precision_recall_curves.png}
+    \caption{Curvas de Precisión-Recall: comparación entre CRF y BiLSTM-CRF en ambos subcorpus. BiLSTM-CRF logra AUC 0.94-0.96 manteniendo alta precisión incluso a alto recall, mientras CRF degrada significativamente (AUC 0.68-0.72).}
+    \label{fig:precision_recall}
+\end{figure}
 
 Para cuantificar la relación entre importancia de rasgos y predicción de términos no vistos, calculamos la correlación de Spearman ($\rho_s$) entre el rank de importancia de cada rasgo (según permutation importance en BiLSTM-CRF) y su poder predictivo sobre términos unseen en el protocolo LOTO (términos que aparecen en test pero nunca en train).
 
