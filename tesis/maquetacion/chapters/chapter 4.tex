@@ -55,6 +55,14 @@ diferenciados---; por otro, el interés contrastivo de obtener un inventario
 que refleje las particularidades del léxico especializado en cada tradición
 académica.
 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{images/exp_diversidad.png}
+    \caption{Experimento de diversidad tipológica: rendimiento del BiLSTM-CRF en función de la heterogeneidad de fuentes vs. volumen homogéneo. 20 documentos de fuentes heterogéneas (EN) igualan o superan el rendimiento de 50 documentos aleatorios, validando que la diversidad de contextos metodológicos es el factor crítico en corpus especializados.}
+    \label{fig:exp_diversidad}
+\end{figure}
+
 El proceso se articula en cuatro fases secuenciales (véase la Figura~\ref{fig:diagrama_extraccion}):
 (i)~preprocesamiento y limpieza del corpus; (ii)~filtrado lingüístico mediante
 patrones morfosintácticos; (iii)~ponderación estadística de los candidatos;
@@ -1010,6 +1018,13 @@ Los resultados de CRF plantean una pregunta fundamental: ¿es el problema inhere
     \includegraphics[width=0.8\linewidth]{experimento_8_julio/graficas/04_heaps_law_TERMINOS.png}
     \caption{Ley de Heaps para TÉRMINOS: crecimiento de vocabulario vs. tamaño del corpus. Panel izquierdo: inglés (β = 0{,}393); panel derecho: español (β = 0{,}591). Escala log-log mostrando saturación terminológica temprana.}
     \label{fig:heaps_terms}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{images/curva_saturacion_terminologica.png}
+    \caption{Curva de saturación terminológica: cobertura de vocabulario de TÉRMINOS vs. número de documentos. Muestra que con solo 21-22 documentos se alcanza el 80\% del vocabulario terminológico completo. Evidencia de que diversidad tipológica es más crítica que volumen bruto.}
+    \label{fig:saturacion_terminos}
+\end{figure}
 \end{figure}
 
 La Ley de Zipf describe una distribución que aparece sistemáticamente en lenguaje natural: la frecuencia de un tipo es inversamente proporcional a su rango. En nuestro corpus:
@@ -1029,6 +1044,14 @@ La solución, entonces, no es mejor optimización del CRF, sino un cambio fundam
 \label{subsec:bilstm_crf}
 
 Un BiLSTM-CRF (Bidirectional Long Short-Term Memory con CRF en la capa de salida) reemplaza los rasgos manuales por representaciones continuas aprendidas:
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{images/curva_aprendizaje_corpus.png}
+    \caption{Curva de aprendizaje del BiLSTM-CRF: F1 score vs. número de documentos de entrenamiento. Muestra saturación rápida (~0.85 F1) con 20-25 documentos, confirmando que para el dominio especializado de lingüística de corpus, la diversidad de fuentes es más importante que el volumen absoluto.}
+    \label{fig:curva_aprendizaje}
+\end{figure}
 
 \begin{enumerate}
     \item Cada token se codifica como un embedding (vector denso de dimensionalidad típicamente 100--300).
