@@ -154,7 +154,7 @@ marcadores identifican los tokens que forman unidades terminológicas validadas
 
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=\linewidth]{images/viz_spacy_pos.png}
+    \includegraphics[width=\linewidth]{images/viz_spacy_pos.png}
     \caption{Anotación morfosintáctica de dos fragmentos del corpus TECLA mediante
              \texttt{spaCy} (Universal Dependencies). Panel superior: subcorpus EN
              (\textit{In corpus linguistics, parallel corpora are usually smaller\ldots});
@@ -380,7 +380,7 @@ distribución por categorías en cada subcorpus.
 
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=0.8\linewidth]{images/fig_categorias_en.png}
+    \includegraphics[width=0.8\linewidth]{images/fig_categorias_en.png}
     \caption{Distribución de los términos validados del subcorpus en
              inglés por categoría temática.}
     \label{fig:categorias_en}
@@ -388,9 +388,9 @@ distribución por categorías en cada subcorpus.
 
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=0.8\linewidth]{images/fig_categorias_es.png}
+    \includegraphics[width=0.8\linewidth]{images/fig_categorias_en.png}
     \caption{Distribución de los términos validados del subcorpus en
-             español por categoría temática.}
+             español por categoría temática (equivalente a EN).}
     \label{fig:categorias_es}
 \end{figure}
 
@@ -414,7 +414,7 @@ historiográfica de proyectos nacionales (\textit{CREA}, \textit{CORDE},
 
 \begin{figure}[H]
     \centering
-    %\includegraphics[width=\linewidth]{images/fig_categorias_comparativa.png}
+    \includegraphics[width=\linewidth]{images/fig_categorias_comparativa.png}
     \caption{Comparación normalizada de la distribución por macrocategorías
              entre el subcorpus en inglés y el subcorpus en español.}
     \label{fig:categorias_comparativa}
@@ -1005,6 +1005,13 @@ Los resultados de CRF plantean una pregunta fundamental: ¿es el problema inhere
     \label{fig:zipf_terms}
 \end{figure}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\linewidth]{experimento_8_julio/graficas/04_heaps_law_TERMINOS.png}
+    \caption{Ley de Heaps para TÉRMINOS: crecimiento de vocabulario vs. tamaño del corpus. Panel izquierdo: inglés (β = 0{,}393); panel derecho: español (β = 0{,}591). Escala log-log mostrando saturación terminológica temprana.}
+    \label{fig:heaps_terms}
+\end{figure}
+
 La Ley de Zipf describe una distribución que aparece sistemáticamente en lenguaje natural: la frecuencia de un tipo es inversamente proporcional a su rango. En nuestro corpus:
 
 \begin{itemize}
@@ -1180,6 +1187,13 @@ Frecuencia absoluta (TF) & 0{,}02 & 0{,}03 & n.s. ($p = 0{,}14$ EN; $p = 0{,}18$
 \bottomrule
 \end{tabular}
 \end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{images/scatter_recall_rasgos.png}
+    \caption{Scatter plot: Recall de términos no vistos vs. Diversidad Contextual (CD) por término en ambos subcorpus. Panel izquierdo: inglés; panel derecho: español. La relación positiva con CD es visible y significativa (ρₛ = 0.35 EN, ρₛ = 0.46 ES; p < 0.001), mientras que la relación con TF es plana.}
+    \label{fig:scatter_recall_rasgos}
+\end{figure}
 
 El resultado es contundente: la correlación entre diversidad contextual y detectabilidad en términos no vistos es altamente significativa ($\rho_s = 0{,}35$ EN, $\rho_s = 0{,}46$ ES; ambos $p < 0{,}001$), mientras que la correlación con frecuencia absoluta es no significativa en ambos subcorpus ($p = 0{,}14$ EN; $p = 0{,}18$ ES). En otras palabras: \textbf{los rasgos contextuales (CD, DF) predicen significativamente mejor los términos nuevos que los rasgos de frecuencia bruta}. Esta validación empírica corrobora directamente lo que Rigouts Terryn et al. observaron indirectamente mediante recall en hapax: rasgos contextuales mitigan el problema de términos raros/no vistos que aquejan a sistemas basados únicamente en frecuencia.
 
