@@ -28,9 +28,12 @@ def list_pdfs(folder):
         raise FileNotFoundError(f"Input folder does not exist: {folder}")
 
     pdfs = []
-    for f in os.listdir(folder):
-        if f.lower().endswith(".pdf"):
-            pdfs.append(os.path.join(folder, f))
+    for dirpath, dirnames, filenames in os.walk(folder):
+        # Skip the TECLA output folder
+        dirnames[:] = [d for d in dirnames if d != "_tecla_txt"]
+        for f in filenames:
+            if f.lower().endswith(".pdf"):
+                pdfs.append(os.path.join(dirpath, f))
 
     return sorted(pdfs)
 

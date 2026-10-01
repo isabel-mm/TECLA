@@ -1,7 +1,12 @@
 pdfminer.six
-spacy
+spacy>=3.0
 nltk
 langid
 pandas
 tqdm
 numpy
+pyyaml
+matplotlib
+customtkinter
+pytest
+pytest-cov

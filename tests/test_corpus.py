@@ -39,21 +39,22 @@ class TestLanguageDetection:
         """Test: Detección de español."""
         from tecla import detect_language
         text = "Este es un texto en español con términos especializados."
-        lang = detect_language(text)
-        assert lang == "es" or lang.startswith("es")
+        lang, confidence = detect_language(text)
+        assert lang == "es"
 
     def test_language_detection_english(self):
         """Test: Detección de inglés."""
         from tecla import detect_language
         text = "This is a text in English with specialized terms."
-        lang = detect_language(text)
-        assert lang == "en" or lang.startswith("en")
+        lang, confidence = detect_language(text)
+        assert lang == "en"
 
-    def test_language_detection_returns_string(self):
-        """Test: detect_language retorna string."""
+    def test_language_detection_returns_code_and_confidence(self):
+        """Test: detect_language devuelve (código de idioma, confianza)."""
         from tecla import detect_language
-        lang = detect_language("test text")
+        lang, confidence = detect_language("test text")
         assert isinstance(lang, str)
+        assert isinstance(confidence, float)
 
 
 if __name__ == "__main__":

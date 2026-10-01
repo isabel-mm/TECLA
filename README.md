@@ -1,1 +1,393 @@
-# TECLA_v2
+# TECLA
+
+**Term Extraction and Corpus Linguistics Application**
+
+TECLA es una herramienta en Python para construir corpus especializados, limpiarlos, extraer candidatos terminológicos y evaluar tanto la extracción como la calidad del corpus. El proyecto ofrece dos formas principales de uso:
+
+- una **CLI** para ejecución reproducible desde terminal;
+- una **API** de Python para integrarlo en notebooks, pipelines o interfaces gráficas.
+
+## Qué hace TECLA
+
+TECLA combina varias etapas en un mismo flujo:
+
+- construcción de corpus a partir de **PDF** o **TXT**;
+- limpieza opcional del texto, incluyendo ruido estructural y bibliografía;
+- detección automática de la lengua;
+- extracción híbrida de términos mediante patrones POS y puntuación estadística;
+- cálculo de métricas de corpus;
+- exportación de resultados a **CSV** y **TBX-Basic**;
+- evaluación frente a un gold standard en CSV.
+
+## Instalación
+
+Instala el paquete en modo editable:
+
+```bash
+pip install -e .
+```
+
+Dependencias principales:
+
+- `spacy`
+- `pdfminer.six`
+- `langid`
+- `nltk`
+- `pandas`
+- `numpy`
+- `pyyaml`
+- `matplotlib`
+- `customtkinter`
+
+### Modelos spaCy
+
+TECLA intenta usar estos modelos por lengua:
+
+| Lengua | Modelo por defecto |
+|---|---|
+| `en` | `en_core_web_lg` |
+| `es` | `es_core_news_md` |
+| `fr` | `fr_core_news_sm` |
+| `de` | `de_core_news_sm` |
+| `it` | `it_core_news_sm` |
+| `pt` | `pt_core_news_sm` |
+
+Es recomendable instalarlos antes de usar TECLA:
+
+```bash
+python -m spacy download es_core_news_md
+python -m spacy download en_core_web_lg
+```
+
+Si un modelo no está disponible, TECLA intenta descargarlo y, si falla, cae a un `spacy.blank(...)`. Ese fallback permite ejecutar el pipeline, pero reduce la calidad del análisis lingüístico y de la extracción.
+
+## Estructura de trabajo
+
+El pipeline trabaja sobre una carpeta de corpus. Si encuentra PDF, primero los convierte a texto; si encuentra TXT, parte directamente de ellos.
+
+```text
+mi_proyecto/
+├── corpus/
+│   ├── articulo_01.pdf
+│   ├── articulo_02.pdf
+│   ├── articulo_03.txt
+│   ├── metadata.csv
+│   └── _tecla_txt/
+│       ├── raw/
+│       └── clean/
+```
+
+Cuando usas `run_tecla_pipeline(...)`, TECLA genera automáticamente:
+
+- `corpus/_tecla_txt/raw/`
+- `corpus/_tecla_txt/clean/`
+- `corpus/metadata.csv`
+
+## Uso rápido desde terminal
+
+La entrada principal es:
+
+```bash
+tecla --help
+```
+
+También puedes ejecutarlo como módulo:
+
+```bash
+python -m tecla --help
+```
+
+### Extraer términos
+
+```bash
+tecla extract \
+  --corpus corpus/ \
+  --lang es \
+  --multiword \
+  --percentile 80 \
+  --output resultados/terminos.csv \
+  --tbx resultados/terminos.tbx
+```
+
+Opciones relevantes:
+
+- `--corpus`: carpeta con PDF o TXT;
+- `--lang`: código ISO como `es`, `en` o `auto`;
+- `--multiword`: deja solo candidatos multipalabra;
+- `--percentile`: conserva el percentil superior por `terminologicity`;
+- `--top-k`: limita el número final de términos;
+- `--output`: exporta a CSV;
+- `--tbx`: exporta a TBX-Basic.
+
+Opciones de limpieza expuestas en la CLI actual:
+
+- `--structure`
+- `--remove-bibliography`
+- `--lemmatize`
+
+### Calcular estadísticas de corpus
+
+```bash
+tecla stats \
+  --corpus corpus/_tecla_txt/clean/ \
+  --lang es \
+  --output resultados/corpus_stats.csv
+```
+
+### Evaluar contra un gold standard
+
+```bash
+tecla evaluate \
+  --extracted resultados/terminos.csv \
+  --gold gold.csv \
+  --mode exact \
+  --verbose
+```
+
+Modos disponibles:
+
+- `exact`: compara la forma superficial;
+- `lemma`: compara por lema, normalmente usando `--extracted-col lemma`.
+
+## Uso rápido desde Python
+
+### Pipeline completo
+
+```python
+from pathlib import Path
+from pipeline.pipeline import run_tecla_pipeline
+
+results = run_tecla_pipeline(
+    corpus_path=Path("corpus"),
+    language="es",
+    cleaning_options={
+        "structure": True,
+        "remove_bibliography_flag": True,
+        "lemmatize_flag": False,
+    },
+    extraction_options={
+        "multiword_only": True,
+        "percentile": 80,
+        "max_term_length": 5,
+        "weights": {"tfidf": 0.5, "ncvalue": 0.5},
+    },
+)
+
+for term in results[:10]:
+    print(term["term"], term["terminologicity"])
+```
+
+### Construir corpus desde TXT
+
+```python
+from tecla.corpus.builder import build_corpus_from_txt
+
+build_corpus_from_txt(
+    input_folder="corpus",
+    out_folder="corpus/_tecla_txt",
+    metadata_file="corpus/metadata.csv",
+    clean=True,
+    clean_params={"structure": True, "remove_bibliography_flag": True},
+)
+```
+
+### Extraer con el extractor directamente
+
+```python
+from pathlib import Path
+
+from tecla.corpus.processor import corpus_to_documents
+from tecla.extractor.hybrid_extractor import HybridTermExtractor
+
+documents = corpus_to_documents(
+    corpus_folder="corpus/_tecla_txt/clean",
+    language="es",
+    spacy_model="es_core_news_md",
+)
+
+extractor = HybridTermExtractor(language="es")
+terms = extractor.extract(
+    documents,
+    percentile=80,
+    term_length=(2, 5),
+    output_path=Path("resultados/terminos.csv"),
+    tbx_output_path=Path("resultados/terminos.tbx"),
+)
+```
+
+## Flujo de procesamiento
+
+`run_tecla_pipeline(...)` sigue este orden:
+
+1. Detecta si el corpus contiene PDF o TXT.
+2. Construye `raw/` y `clean/`.
+3. Genera `metadata.csv`.
+4. Detecta la lengua si `language` es `None` o `"auto"`.
+5. Convierte los textos limpios en documentos lingüísticamente anotados.
+6. Extrae candidatos con patrones POS.
+7. Calcula frecuencia, TF-IDF, C-value y `terminologicity`.
+8. Filtra artefactos, variantes y stop terms.
+9. Devuelve una lista ordenada por `terminologicity`.
+
+## Campos de salida
+
+Los resultados de extracción pueden incluir, entre otros, estos campos:
+
+| Campo | Descripción |
+|---|---|
+| `term` | forma superficial del candidato |
+| `lemma` | forma lematizada o canónica |
+| `variants` | variantes ortográficas o abreviadas |
+| `language` | lengua del término |
+| `length` | longitud en tokens |
+| `frequency` | frecuencia absoluta |
+| `freq_rel` | frecuencia relativa |
+| `doc_frequency` | número de documentos donde aparece |
+| `tf_idf` | peso TF-IDF |
+| `c_value` | peso C-value |
+| `terminologicity` | puntuación compuesta final |
+| `patterns` | patrones lingüísticos que dispararon el candidato |
+
+## Limpieza del corpus
+
+La limpieza es modular y no se activa implícitamente. Entre las operaciones soportadas por `tecla.corpus.cleaning` están:
+
+- recomposición de palabras partidas por guion;
+- eliminación de líneas cortas o números de página;
+- eliminación de referencias bibliográficas;
+- eliminación de metadatos editoriales, captions, keywords y URLs;
+- eliminación opcional de stopwords;
+- lematización con spaCy.
+
+La CLI expone solo una parte de estas opciones. Para control fino, usa la API.
+
+## Gramática POS personalizada
+
+El extractor usa `tecla/extractor/grammar.yaml`. También puedes pasar otra gramática:
+
+```python
+from pathlib import Path
+from tecla.extractor.hybrid_extractor import HybridTermExtractor
+
+extractor = HybridTermExtractor(
+    language="es",
+    grammar_path=Path("mi_gramatica.yaml"),
+)
+```
+
+Ejemplo mínimo:
+
+```yaml
+es:
+  - id: ES_NP_DE
+    description: Sintagma nominal con preposición de
+    pos_pattern: "NOUN+ de NOUN+"
+```
+
+## Evaluación
+
+TECLA incluye evaluación de extracción y métricas de corpus.
+
+### Evaluación de extracción
+
+`tecla.evaluation.term_eval` calcula:
+
+- `precision`
+- `recall`
+- `f1`
+- `tp`, `fp`, `fn`
+
+Entrada esperada:
+
+- CSV de términos extraídos;
+- CSV gold standard;
+- columnas configurables, por defecto `term`.
+
+### Estadísticas de corpus
+
+`tecla.corpus.statistics` calcula por documento:
+
+- `token_count`
+- `type_count`
+- `ttr`
+- `hapax_ratio`
+- `stopword_ratio`
+- `lexical_density`
+- `sentence_count`
+- `avg_sentence_length`
+
+## Log de depuración
+
+Cada vez que se ejecuta el pipeline, TECLA escribe automáticamente un archivo `tecla_debug.txt` en el **directorio de trabajo actual**. Si el archivo ya existe, las nuevas sesiones se añaden al final sin borrar las anteriores.
+
+El log registra el tiempo que tarda cada etapa pesada del proceso:
+
+```
+2026-04-29 14:05:01  INFO      ════════════════════════════════════════
+2026-04-29 14:05:01  INFO      NUEVA SESIÓN TECLA  corpus: /mis/pdfs
+2026-04-29 14:05:01  INFO      ════════════════════════════════════════
+2026-04-29 14:05:01  INFO      [INICIO] Conversión PDF→TXT (5 archivos)
+2026-04-29 14:05:07  INFO      [FIN]    Conversión PDF→TXT (5 archivos) — 6.03 s
+2026-04-29 14:05:07  INFO      Lengua detectada: es
+2026-04-29 14:05:07  INFO      [INICIO] Procesamiento spaCy — modelo 'es_core_news_md'
+2026-04-29 14:05:51  INFO      [FIN]    Procesamiento spaCy — modelo 'es_core_news_md' — 44.21 s
+2026-04-29 14:05:51  INFO      Corpus: 12 docs, 187,430 tokens
+2026-04-29 14:05:51  INFO      [INICIO] Extracción de candidatos (percentil=80)
+2026-04-29 14:05:53  INFO      [FIN]    Extracción de candidatos (percentil=80) — 1.87 s
+2026-04-29 14:05:53  INFO      Extracción completada: 312 candidatos
+```
+
+Las etapas temporizadas son:
+
+| Etapa | Descripción |
+|---|---|
+| Conversión PDF→TXT | Extracción de texto desde PDF con pdfminer |
+| Limpieza TXT | Aplicación de filtros de limpieza sobre texto plano |
+| Detección de la lengua | Identificación automática de la lengua del corpus |
+| Procesamiento spaCy | Anotación lingüística completa (suele ser la etapa más lenta) |
+| Extracción de candidatos | Filtrado POS, puntuación estadística y consolidación |
+
+El archivo no se elimina automáticamente. Si quieres empezar desde cero, bórralo manualmente.
+
+## GUI
+
+El repositorio incluye una interfaz en `gui/tecla_gui.py` con pestañas de:
+
+- `Corpus`
+- `Extracción`
+- `Revisión`
+- `Evaluación`
+
+Se ejecuta con:
+
+```bash
+python gui/tecla_gui.py
+```
+
+## Desarrollo
+
+Ejecutar tests:
+
+```bash
+pytest
+```
+
+Instalar dependencias de desarrollo:
+
+```bash
+pip install -e .[dev]
+```
+
+## Documentación Sphinx
+
+Fuentes en `docs/source/`.
+
+Construcción local habitual:
+
+```bash
+make -C docs html
+```
+
+## Licencia
+
+MIT

@@ -1,19 +1,21 @@
-.. TECLA documentation master file, created by
-   sphinx-quickstart on Tue Dec 16 15:35:56 2025.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+Documentación de TECLA
+======================
 
-Welcome to TECLA's documentation!
-=================================
+TECLA es una herramienta para extracción terminológica basada en corpus. Esta documentación cubre la instalación, la CLI, la API y el flujo de trabajo general del proyecto.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Contenido
+
+   overview
+   quickstart
+   cli
+   api_usage
+   debug
 
 
-
-Indices and tables
-==================
+Índices y tablas
+================
 
 * :ref:`genindex`
 * :ref:`modindex`

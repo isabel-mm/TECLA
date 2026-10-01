@@ -139,7 +139,7 @@ See `/examples/` for complete working examples:
 score = α × TF-IDF + (1-α) × C-value
 ```
 
-Default weights: α = 0.6 (TF-IDF), (1-α) = 0.4 (C-value)
+Default weights: α = 0.5 (TF-IDF), (1-α) = 0.5 (NC-value), i.e. the mean of both; adjustable (presets or custom weights)
 
 ### C-Value
 
@@ -189,7 +189,7 @@ Customize extraction behavior:
 
 ```python
 config = {
-    "tfidf_weight": 0.6,      # TF-IDF component weight
+    "tfidf_weight": 0.5,      # TF-IDF component weight
     "c_value_weight": 0.4,    # C-value component weight  
     "min_length": 3,          # Min tokens per term
     "max_length": 5,          # Max tokens per term
