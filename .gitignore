@@ -1,15 +1,52 @@
-docs/.DS_Store
-.venv/
+# ============================================================
+# TECLA: el repositorio contiene solo la librería.
+# Se ignora todo lo de la raíz y se permite, de forma explícita,
+# únicamente lo que forma parte de TECLA.
+# ============================================================
+
+/*
+
+# --- Configuración del paquete y documentación de uso ---
+!/.gitignore
+!/README.md
+!/LICENSE
+!/pyproject.toml
+!/requirements.txt
+!/TECLA_GUIA_USO.pdf
+!/TECLA_colab_demo.ipynb
+
+# --- Código de la librería ---
+!/tecla/
+!/gui/
+!/pipeline/
+
+# --- Pruebas y ejemplos ---
+!/tests/
+!/examples/
+
+# --- Documentación (fuentes; la versión HTML se genera) ---
+!/docs/
+/docs/build/
+
+# --- Empaquetado de la aplicación de escritorio (macOS) ---
+!/packaging/
+!/scripts/
+/scripts/test.py
+
+# ============================================================
+# Dentro de las carpetas permitidas
+# ============================================================
+
+# Python
 __pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Sistema
 .DS_Store
-tesis/bio/
-tesis/maquetacion/main.pdf
-tesis/maquetacion/.aux
-tesis/maquetacion/*.aux
-tesis/maquetacion/*.log
-tesis/maquetacion/*.toc
-tesis/maquetacion/*.bcf
-tesis/maquetacion/*.xml
-tesis/maquetacion/*.bbl
-tesis/maquetacion/*.blg
-tesis/maquetacion/*.out
+
+# Salida de TECLA al procesar un corpus
+_tecla_txt/
+.tecla_session.json
+_tecla_output/

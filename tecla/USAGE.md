@@ -220,7 +220,7 @@ Default parameters for extraction:
 
 ```python
 {
-    "tfidf_weight": 0.6,      # Weight of TF-IDF in composite score
+    "tfidf_weight": 0.5,      # Weight of TF-IDF in composite score
     "c_value_weight": 0.4,    # Weight of C-value in composite score
     "min_length": 3,          # Minimum term length (tokens)
     "max_length": 5,          # Maximum term length (tokens)

@@ -25,10 +25,11 @@ def compute_frequencies(
     candidates: List[Dict[str, Any]]
 ) -> Dict[str, Dict[str, int]]:
     """
-    Compute term frequency and document frequency.
+    Compute term frequency, document frequency, and per-document counts.
     """
     freq = defaultdict(int)
     doc_freq = defaultdict(set)
+    per_doc: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
     for cand in candidates:
         lemma = cand["lemma"]
@@ -36,11 +37,13 @@ def compute_frequencies(
 
         freq[lemma] += 1
         doc_freq[lemma].add(doc_id)
+        per_doc[lemma][doc_id] += 1
 
     return {
         lemma: {
             "frequency": freq[lemma],
-            "doc_frequency": len(doc_freq[lemma])
+            "doc_frequency": len(doc_freq[lemma]),
+            "per_doc": dict(per_doc[lemma]),
         }
         for lemma in freq
     }
@@ -73,34 +76,56 @@ def compute_tfidf(
 # C-value
 # ---------------------------------------------------------------------
 
+def _is_nested(t1_words: list, t2_words: list) -> bool:
+    """Return True if t1_words appears as a contiguous sub-sequence in t2_words."""
+    n = len(t1_words)
+    for i in range(len(t2_words) - n + 1):
+        if t2_words[i:i + n] == t1_words:
+            return True
+    return False
+
+
 def compute_cvalue(
     term_stats: Dict[str, Dict[str, int]]
 ) -> Dict[str, float]:
     """
     Compute C-value scores for candidate terms.
+
+    C-value(a) = log2(|a|) * (f(a) - (1/P(a)) * sum_{t in P(a)} f(t))
+    where P(a) is the set of longer terms that contain a as a sub-sequence.
     """
 
     terms = list(term_stats.keys())
     cvalue = {}
 
-    term_lengths = {t: len(t.split()) for t in terms}
-    nested_in = defaultdict(list)
+    terms_words = {t: t.split() for t in terms}
+    nested_in: Dict[str, list] = defaultdict(list)
 
     for t1 in terms:
+        w1 = terms_words[t1]
         for t2 in terms:
-            if t1 != t2 and t1 in t2.split():
+            if t1 == t2:
+                continue
+            w2 = terms_words[t2]
+            # t1 can only be nested inside a *longer* term
+            if len(w1) < len(w2) and _is_nested(w1, w2):
                 nested_in[t1].append(t2)
 
     for term in terms:
         f = term_stats[term]["frequency"]
-        length = term_lengths[term]
+        length = len(terms_words[term])
         nested_terms = nested_in.get(term, [])
 
+        if length == 1:
+            log_len = 1.0
+        else:
+            log_len = log2(length)
+
         if not nested_terms:
-            cvalue[term] = log2(length) * f
+            cvalue[term] = log_len * f
         else:
             nested_freq_sum = sum(term_stats[t]["frequency"] for t in nested_terms)
-            cvalue[term] = log2(length) * (f - (nested_freq_sum / len(nested_terms)))
+            cvalue[term] = log_len * (f - (nested_freq_sum / len(nested_terms)))
 
     return cvalue
 
@@ -191,40 +216,99 @@ def compute_entropy_weights(
 
 
 # ---------------------------------------------------------------------
+# NC-value
+# ---------------------------------------------------------------------
+
+def compute_ncvalue(
+    term_stats: Dict[str, Dict[str, int]],
+    candidates: List[Dict[str, Any]],
+    cvalue: Dict[str, float],
+) -> Dict[str, float]:
+    """
+    Compute NC-value scores (Frantzi et al. 2000).
+
+    NC-value extends C-value by incorporating term context information:
+
+        NC-value(a) = 0.8 * C-value(a) + 0.2 * context_factor(a)
+
+    context_factor(a) = (1 / n_a) * sum_{w in context(a)} weight(w)
+
+    where
+        weight(w)  = |{candidates that co-occur with w}| / |total candidates|
+        n_a        = number of distinct context words of candidate a
+        context(a) = set of content words within ±2 tokens of occurrences of a
+    """
+    context_of: Dict[str, set] = defaultdict(set)
+    cw_cooccurs: Dict[str, set] = defaultdict(set)  # cw -> set of candidate lemmas
+
+    for cand in candidates:
+        lemma = cand["lemma"]
+        for cw in cand.get("context_words", []):
+            context_of[lemma].add(cw)
+            cw_cooccurs[cw].add(lemma)
+
+    n_candidates = len(term_stats)
+    cw_weight = {
+        cw: len(lemma_set) / n_candidates
+        for cw, lemma_set in cw_cooccurs.items()
+    } if n_candidates else {}
+
+    ncvalue: Dict[str, float] = {}
+    for lemma in term_stats:
+        cw_set = context_of.get(lemma, set())
+        if cw_set:
+            context_factor = sum(cw_weight.get(cw, 0.0) for cw in cw_set) / len(cw_set)
+        else:
+            context_factor = 0.0
+        ncvalue[lemma] = 0.8 * cvalue.get(lemma, 0.0) + 0.2 * context_factor
+
+    return ncvalue
+
+
+# ---------------------------------------------------------------------
 # Composite index
 # ---------------------------------------------------------------------
 
 def compute_terminologicity(
     tfidf_norm: Dict[str, float],
-    cvalue_norm: Dict[str, float],
+    ncvalue_norm: Dict[str, float],
     weights: Optional[Dict[str, float]] = None
 ) -> Dict[str, float]:
     """
     Compute composite terminologicity index.
 
+    Combines normalised TF-IDF and normalised NC-value (which already
+    subsumes C-value + context information).
+
     weights can be:
-    - dict: {"tfidf": x, "cvalue": y}
+    - dict: {"tfidf": x, "ncvalue": y}  (por defecto, media: 0,5 y 0,5;
+      se acepta también la clave antigua "cvalue", que se aplica al NC-value)
     - "variance": automatic variance-based weighting
     - "entropy": automatic entropy-based weighting
     """
 
     if weights is None:
-        weights = {"tfidf": 0.5, "cvalue": 0.5}
+        weights = {"tfidf": 0.5, "ncvalue": 0.5}
 
     if isinstance(weights, str):
         if weights == "variance":
-            weights = compute_variance_weights(tfidf_norm, cvalue_norm)
+            weights = compute_variance_weights(tfidf_norm, ncvalue_norm)
         elif weights == "entropy":
-            weights = compute_entropy_weights(tfidf_norm, cvalue_norm)
+            weights = compute_entropy_weights(tfidf_norm, ncvalue_norm)
         else:
             raise ValueError(f"Unknown weight mode: {weights}")
+
+    w_tfidf = weights["tfidf"]
+    w_nc = weights.get("ncvalue", weights.get("cvalue"))
+    if w_nc is None:
+        raise ValueError('weights debe incluir "ncvalue" (o la clave antigua "cvalue").')
 
     terminologicity = {}
 
     for term in tfidf_norm:
         terminologicity[term] = (
-            weights["tfidf"] * tfidf_norm.get(term, 0.0)
-            + weights["cvalue"] * cvalue_norm.get(term, 0.0)
+            w_tfidf * tfidf_norm.get(term, 0.0)
+            + w_nc * ncvalue_norm.get(term, 0.0)
         )
 
     return terminologicity
@@ -242,20 +326,30 @@ def compute_statistics(
 ) -> List[Dict[str, Any]]:
     """
     Enrich candidates with statistical metrics and terminologicity index.
+
+    Metrics computed per candidate lemma:
+    - frequency, doc_frequency, freq_rel, per_doc
+    - tf_idf, tf_idf_norm
+    - c_value, c_value_norm
+    - nc_value, nc_value_norm  (C-value extended with context information)
+    - terminologicity  (weighted combination of tf_idf_norm and nc_value_norm)
     """
 
     n_documents = len({doc["doc_id"] for doc in documents})
+    total_corpus_tokens = sum(len(d.get("tokens", [])) for d in documents)
 
     term_stats = compute_frequencies(candidates)
     tfidf = compute_tfidf(term_stats, n_documents)
     cvalue = compute_cvalue(term_stats)
+    ncvalue = compute_ncvalue(term_stats, candidates, cvalue)
 
     tfidf_norm = min_max_normalise(tfidf)
     cvalue_norm = min_max_normalise(cvalue)
+    ncvalue_norm = min_max_normalise(ncvalue)
 
     terminologicity = compute_terminologicity(
         tfidf_norm,
-        cvalue_norm,
+        ncvalue_norm,
         weights
     )
 
@@ -267,11 +361,17 @@ def compute_statistics(
             **cand,
             "frequency": term_stats[lemma]["frequency"],
             "doc_frequency": term_stats[lemma]["doc_frequency"],
+            "per_doc": term_stats[lemma]["per_doc"],
+            "freq_rel": round(
+                term_stats[lemma]["frequency"] / total_corpus_tokens * 1000, 4
+            ) if total_corpus_tokens else 0.0,
             "tf_idf": tfidf[lemma],
             "c_value": cvalue[lemma],
+            "nc_value": ncvalue[lemma],
             "tf_idf_norm": tfidf_norm[lemma],
             "c_value_norm": cvalue_norm[lemma],
-            "terminologicity": terminologicity[lemma]
+            "nc_value_norm": ncvalue_norm[lemma],
+            "terminologicity": terminologicity[lemma],
         })
 
     return enriched

@@ -1,0 +1,121 @@
+resumen
+introducción
+antecedentes
+trabajo relacionado
+conclusión
+conclusiones
+discusión
+limitaciones
+agradecimientos
+apéndice
+material suplementario
+figura
+tabla
+sección
+ecuación
+algoritmo
+procedimiento
+metodología
+estudio
+estudios
+artículo
+trabajo
+investigación
+análisis
+enfoque
+método
+modelo
+marco
+sistema
+proceso
+tarea
+aplicación
+resultado
+resultados
+hallazgo
+hallazgos
+cuestión
+problema
+pregunta
+evidencia
+experimento
+experimentos
+en este artículo
+en este estudio
+en este trabajo
+como se muestra en
+como se puede observar
+según
+cabe señalar
+por ejemplo
+por lo tanto
+en orden a
+por otro lado
+al mismo tiempo
+con respecto a
+en cuanto a
+en términos de
+en el contexto de
+en particular
+anterior
+actual
+adicional
+reciente
+muchos
+varios
+significativo
+importante
+novedoso
+principal
+mayor
+primario
+posible
+url
+código
+repositorio
+material suplementario
+apéndice material
+estado del arte
+a gran escala
+de extremo a extremo
+inglés americano
+inglés británico
+et al .
+al .
+vol .
+universidad
+prensa universitaria
+corpus anotado
+anotación lingüística
+correo electrónico
+correo
+capítulo
+figura
+tabla
+palabras clave
+es decir
+punto de vista
+primer lugar
+primero lugar
+segundo lugar
+tercer lugar
+esto es
+elaboración propia
+mayor parte
+punto de partida
+resultado obtenido
+diferente tipo
+buena parte
+primera persona
+segunda persona
+tercera persona
+siglo xx
+siglo xxi
+siglo xvi
+siglo xv
+siglo xviii
+grupo de investigación
+tesis doctoral
+tesis de licenciatura
+forma distinta
+muestra analizada

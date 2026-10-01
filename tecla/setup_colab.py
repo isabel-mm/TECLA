@@ -2,11 +2,11 @@
 Full plug-and-play setup utility for TECLA in Google Colab.
 
 Features:
-- User selects which languages to install (spaCy models)
-- Dependencies auto-installed
-- NLTK stopwords auto-downloaded
-- Cleans cached modules
-- TECLA becomes importable immediately
+- Instala todas las dependencias de TECLA
+- El usuario selecciona las lenguas (modelos spaCy)
+- Descarga recursos NLTK automáticamente
+- Limpia módulos cacheados para evitar conflictos en Colab
+- TECLA queda importable de inmediato
 """
 
 import sys
@@ -16,140 +16,165 @@ import subprocess
 
 
 # ---------------------------------------------------------------------
-# spaCy model table
+# Tabla de modelos spaCy
 # ---------------------------------------------------------------------
 
 SPACY_MODELS = {
-    "en": "en_core_web_sm",
-    "es": "es_core_news_sm",
+    "en": "en_core_web_lg",
+    "es": "es_core_news_md",
     "fr": "fr_core_news_sm",
     "de": "de_core_news_sm",
     "it": "it_core_news_sm",
     "pt": "pt_core_news_sm",
 }
 
+# Dependencias Python de TECLA
+_DEPENDENCIES = [
+    "pdfminer.six",
+    "spacy>=3.0",
+    "nltk",
+    "langid",
+    "pandas",
+    "tqdm",
+    "pyyaml",
+]
+
 
 # ---------------------------------------------------------------------
-# Helper: pip installer
+# Instalador pip
 # ---------------------------------------------------------------------
 
-def _pip_install(package):
+def _pip_install(package: str) -> None:
     try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-        print(f"📦 Installed: {package}")
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "--quiet", package]
+        )
+        print(f"   ✓ {package}")
     except Exception as e:
-        print(f"⚠️ Could not install {package}: {e}")
+        print(f"   ⚠️  No se pudo instalar {package}: {e}")
 
 
-def _install_dependencies():
-    """Install core TECLA dependencies."""
-    deps = ["pdfminer.six", "spacy", "nltk", "langid"]
-    print("📌 Installing dependencies...")
-    for pkg in deps:
+def _install_dependencies() -> None:
+    print("📦 Instalando dependencias de TECLA…")
+    for pkg in _DEPENDENCIES:
         _pip_install(pkg)
+    print("   Listo.\n")
 
 
 # ---------------------------------------------------------------------
-# spaCy model installer (only selected languages)
+# Instalador de modelos spaCy
 # ---------------------------------------------------------------------
 
-def _ensure_spacy_models(languages):
+def _ensure_spacy_models(languages: list) -> None:
     import spacy
     import spacy.cli
 
-    print("📌 Ensuring spaCy models for:", languages)
+    print("🔤 Comprobando modelos spaCy para:", languages)
 
     for lang in languages:
         if lang not in SPACY_MODELS:
-            print(f"⚠️ Language '{lang}' not supported. Skipping.")
+            print(f"   ⚠️  Lengua '{lang}' no admitida. Se omite.")
             continue
 
         model = SPACY_MODELS[lang]
-
         try:
             spacy.load(model)
-            print(f"   🔄 Model already installed: {model}")
+            print(f"   ✓ Ya instalado: {model}")
         except OSError:
-            print(f"   ⬇️ Downloading: {model}")
+            print(f"   ⬇️  Descargando: {model}")
             try:
                 spacy.cli.download(model)
-                print(f"   ✓ Installed: {model}")
+                print(f"   ✓ Instalado: {model}")
             except Exception as e:
-                print(f"   ⚠️ Could not download {model}: {e}")
-                print(f"   → Will fallback to blank model at runtime.")
+                print(f"   ⚠️  No se pudo descargar {model}: {e}")
+                print(f"      → Se usará modelo en blanco en tiempo de ejecución.")
+    print()
 
 
 # ---------------------------------------------------------------------
-# NLTK stopwords installer
+# Recursos NLTK
 # ---------------------------------------------------------------------
 
-def _download_nltk_resources():
+def _download_nltk_resources() -> None:
     import nltk
 
-    print("📌 Ensuring NLTK resources...")
-
-    try:
-        nltk.download("stopwords", quiet=True)
-        nltk.download("punkt", quiet=True)
-        print("   ✓ NLTK resources installed")
-    except Exception as e:
-        print(f"   ⚠️ Could not install NLTK resources: {e}")
+    print("📚 Descargando recursos NLTK…")
+    for resource in ("stopwords", "punkt", "punkt_tab"):
+        try:
+            nltk.download(resource, quiet=True)
+            print(f"   ✓ {resource}")
+        except Exception as e:
+            print(f"   ⚠️  No se pudo descargar {resource}: {e}")
+    print()
 
 
 # ---------------------------------------------------------------------
-# MAIN SETUP FUNCTION
+# FUNCIÓN PRINCIPAL
 # ---------------------------------------------------------------------
 
-def setup_tecla(path="/content/TECLA_v2", languages=["es", "en"]):
+def setup_tecla(path: str = "/content/TECLA", languages: list | str = ["es", "en"]) -> bool:
     """
-    Run full TECLA setup in Google Colab.
+    Configura TECLA en Google Colab de forma completa.
 
-    Parameters:
-    - path (str): Path to TECLA repo
-    - languages (list or "all"): spaCy languages to install
+    Parámetros
+    ----------
+    path : str
+        Ruta al repositorio de TECLA clonado en Colab.
+        Por defecto: "/content/TECLA"
+    languages : list o "all"
+        Lenguas para las que instalar modelos spaCy.
+        Ejemplo: ["es", "en"] — admite "all" para instalar todos.
+
+    Uso
+    ---
+    >>> from tecla.setup_colab import setup_tecla
+    >>> setup_tecla(path="/content/TECLA", languages=["es", "en"])
     """
 
-    print("🚀 Setting up TECLA...")
+    print("🚀 Iniciando configuración de TECLA…\n")
 
-    # Validate languages
+    # Validar lenguas
     if languages == "all":
         languages = list(SPACY_MODELS.keys())
     elif isinstance(languages, str):
         languages = [languages]
 
-    # Ensure valid list
     if not isinstance(languages, list):
-        raise ValueError("languages must be a list like ['es','en'] or 'all'.")
+        raise ValueError("languages debe ser una lista como ['es','en'] o 'all'.")
 
-    # Add TECLA to path
+    # Añadir TECLA al path
     if not os.path.isdir(path):
-        raise ValueError(f"Directory not found: {path}")
+        raise ValueError(
+            f"Directorio no encontrado: {path}\n"
+            f"Asegúrate de haber clonado el repositorio con:\n"
+            f"  !git clone https://github.com/tu-usuario/TECLA {path}"
+        )
 
     if path not in sys.path:
-        sys.path.append(path)
-        print(f"📂 Added TECLA path: {path}")
+        sys.path.insert(0, path)
+        print(f"📂 Ruta añadida al path: {path}\n")
 
-    # Install Python packages
+    # Instalación
     _install_dependencies()
-
-    # Install spaCy models only for selected languages
     _ensure_spacy_models(languages)
-
-    # NLTK resources
     _download_nltk_resources()
 
-    # Clear cached modules (important in Colab)
-    removed = [m for m in sys.modules if m.startswith("tecla")]
+    # Limpiar módulos cacheados (necesario si se reinstala en Colab)
+    removed = [m for m in list(sys.modules) if m.startswith("tecla")]
     for m in removed:
         del sys.modules[m]
-    print(f"🧹 Cleared {len(removed)} cached TECLA modules")
+    if removed:
+        print(f"🧹 Módulos cacheados limpiados: {len(removed)}\n")
 
-    # Validate import
+    # Validar importación
     try:
         importlib.import_module("tecla")
-        print("✅ TECLA successfully imported!")
+        print("✅ TECLA importado correctamente.")
     except Exception as e:
-        raise ImportError(f"❌ TECLA could not be imported: {e}")
+        raise ImportError(
+            f"❌ TECLA no se pudo importar: {e}\n"
+            f"Comprueba que la ruta '{path}' contiene el paquete 'tecla/'."
+        )
 
-    print("🎉 TECLA setup completed — ready to use!")
+    print("\n🎉 ¡Configuración completa! TECLA está listo para usar.")
     return True

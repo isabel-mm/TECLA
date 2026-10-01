@@ -23,13 +23,12 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
-    'sphinxcontrib.mermaid',   # si lo estás usando
-    'sphinx.ext.graphviz'    # si usas graphviz
+    'sphinx.ext.graphviz'
 ]
 
 
 templates_path = ['_templates']
-exclude_patterns = []
+exclude_patterns = ['api/*']
 
 language = 'es'
 
