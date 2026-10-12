@@ -44,7 +44,7 @@ def extraer(archivos, ejemplo, lengua, monolexicos, perfil):
     corpus = trabajo / "corpus"
     corpus.mkdir()
 
-    if ejemplo != "Mis textos":
+    if ejemplo != "Cargar textos propios":
         origen = EJEMPLOS / ("en" if "inglés" in ejemplo else "es")
         rutas = sorted(origen.glob("*.txt"))
         lengua = "Inglés" if "inglés" in ejemplo else "Español"
@@ -135,11 +135,11 @@ with gr.Blocks(theme=tema, title="TECLA · demostración") as demo:
     with gr.Row():
         with gr.Column(scale=1, min_width=300):
             ejemplo = gr.Radio(
-                ["Textos de ejemplo (inglés)", "Textos de ejemplo (español)", "Mis textos"],
+                ["Textos de ejemplo (inglés)", "Textos de ejemplo (español)", "Cargar textos propios"],
                 value="Textos de ejemplo (inglés)", label="Corpus",
                 info="Los textos de ejemplo son seis textos de prueba sobre lingüística de corpus, "
                      "ficticios y generados con inteligencia artificial (Claude).")
-            archivos = gr.File(label="Mis textos (TXT o PDF)", file_count="multiple",
+            archivos = gr.File(label="Textos propios (TXT o PDF)", file_count="multiple",
                                file_types=[".txt", ".pdf"], visible=False)
             lengua = gr.Radio(list(LENGUAS), value="Detección automática", label="Lengua")
             monolexicos = gr.Checkbox(value=True, label="Incluir candidatos monoléxicos")
@@ -156,7 +156,7 @@ with gr.Blocks(theme=tema, title="TECLA · demostración") as demo:
                 salida_csv = gr.File(label="Candidatos (CSV)")
                 salida_tbx = gr.File(label="Candidatos (TBX-Basic)")
 
-    ejemplo.change(lambda e: gr.update(visible=e == "Mis textos"), ejemplo, archivos)
+    ejemplo.change(lambda e: gr.update(visible=e == "Cargar textos propios"), ejemplo, archivos)
     boton.click(extraer, [archivos, ejemplo, lengua, monolexicos, perfil],
                 [resumen, tabla, tabla_doc, salida_csv, salida_tbx])
 
