@@ -22,31 +22,33 @@ from pipeline.pipeline import run_tecla_pipeline
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 
-# ── Paleta índigo/pizarra (profesional, sin verde) ──
-_ACCENT        = "#4361ee"   # índigo azul (resalte principal, botones con texto blanco)
-_ACCENT_DIM    = "#3451c7"   # índigo oscuro (hover)
-_ACCENT2       = "#7c3aed"   # violeta (resalte secundario, botones con texto blanco)
-_BG_ROOT       = "#f7f8fc"   # fondo general
+# ── Paleta violeta (la de la web de GLiCor) ──
+_ACCENT        = "#7c3aed"   # violeta (resalte principal, botones con texto blanco)
+_ACCENT_DIM    = "#6d28d9"   # violeta oscuro (hover)
+_ACCENT2       = "#6d28d9"   # violeta oscuro (resalte secundario, botones de contorno)
+_TEAL          = "#0d9488"   # verde azulado (pasos completados)
+_BG_ROOT       = "#fbfaff"   # fondo general
 _BG_CARD       = "#ffffff"   # tarjetas
-_BG_CARD2      = "#eef0f8"   # cabeceras / filas alternas
-_BG_LOG        = "#1e2240"   # log (terminal oscuro)
-_BORDER        = "#dde1ef"   # bordes suaves
-_TEXT          = "#1a1d35"   # texto principal
-_TEXT_MUTED    = "#6b7280"   # texto atenuado
-_SEG_TEXT      = "#1a1d35"   # texto en botones segmentados (oscuro sobre fondos claros)
-_SEG_SELECTED  = "#a5b4fc"   # fondo seleccionado en botones/pestañas (índigo suave)
-_SEG_SEL_HOV   = "#818cf8"   # hover del estado seleccionado (índigo medio)
-_TEXT_LOG      = "#818cf8"   # texto del log
+_BG_CARD2      = "#f5f3ff"   # cabeceras / campos (lavanda)
+_BG_LOG        = "#1e1b4b"   # log (terminal oscuro)
+_BORDER        = "#e2e8f0"   # bordes suaves
+_TEXT          = "#1e1b4b"   # texto principal
+_TEXT_MUTED    = "#64748b"   # texto atenuado
+_SEG_TEXT      = "#1e1b4b"   # texto en botones segmentados sin seleccionar
+_SEG_SELECTED  = "#7c3aed"   # fondo seleccionado en botones segmentados
+_SEG_SEL_HOV   = "#6d28d9"   # hover del estado seleccionado
+_TEXT_LOG      = "#c4b5fd"   # texto del log
 _ROW_ODD       = "#ffffff"
-_ROW_EVEN      = "#f7f8fc"
-_STATUS_COLOR  = {"pendiente": "#6b7280", "aprobado": "#16a34a", "rechazado": "#dc2626"}
+_ROW_EVEN      = "#f8f6ff"
+_STATUS_COLOR  = {"pendiente": "#64748b", "aprobado": "#16a34a", "rechazado": "#dc2626"}
 
-# ── Sidebar (panel lateral claro, diferenciado) ──
-_SB_BG         = "#eef0fa"   # fondo sidebar (lavanda suave)
-_SB_SECTION    = "#dde2f5"   # bandas de sección
-_SB_TEXT       = "#1a1d35"   # texto sidebar (oscuro sobre claro)
-_SB_MUTED      = "#6b7280"   # texto atenuado sidebar
-_SB_BORDER     = "#c8d0e8"   # bordes sidebar
+# ── Sidebar (panel lateral lavanda) ──
+_SB_BG         = "#f5f3ff"   # fondo sidebar
+_SB_SECTION    = "#ede9fe"   # hover / bandas
+_SB_TEXT       = "#1e1b4b"   # texto sidebar
+_SB_MUTED      = "#64748b"   # texto atenuado sidebar
+_SB_BORDER     = "#ddd6fe"   # bordes sidebar (lavanda)
+_STEP_PENDING  = "#c4b5fd"   # contorno de los pasos aún no recorridos
 
 _SESSION_FILE  = Path.home() / ".tecla_session.json"
 
@@ -147,6 +149,151 @@ def _tab_header(tab, title: str, description: str):
                  anchor="w").pack(fill="x", padx=18, pady=(0, 8))
 
 
+def _miles(n) -> str:
+    """Entero con separador de millares (espacio)."""
+    return f"{int(n):,}".replace(",", " ")
+
+
+def _stat_cards(parent, items) -> dict:
+    """Fila de tarjetas de cifras. Devuelve {clave: etiqueta del valor}."""
+    row = ctk.CTkFrame(parent, fg_color="transparent")
+    row.pack(fill="x", padx=18, pady=(4, 8))
+    labels = {}
+    for i, (key, caption) in enumerate(items):
+        row.grid_columnconfigure(i, weight=1, uniform="cifra")
+        card = ctk.CTkFrame(row, fg_color=_BG_CARD, corner_radius=10,
+                            border_width=1, border_color=_BORDER)
+        card.grid(row=0, column=i, sticky="ew",
+                  padx=(0 if i == 0 else 6, 0 if i == len(items) - 1 else 6))
+        val = ctk.CTkLabel(card, text="—", font=ctk.CTkFont(size=20, weight="bold"),
+                           text_color=_TEXT, anchor="w")
+        val.pack(fill="x", padx=14, pady=(10, 0))
+        ctk.CTkLabel(card, text=caption, font=ctk.CTkFont(size=11),
+                     text_color=_TEXT_MUTED, anchor="w").pack(fill="x", padx=14, pady=(0, 10))
+        labels[key] = val
+    return labels
+
+
+class _Segmented(ctk.CTkFrame):
+    """Selector segmentado: la opción elegida en violeta con texto blanco."""
+
+    def __init__(self, master, values, variable=None, command=None, font=None,
+                 labels=None, **_ignored):
+        super().__init__(master, fg_color=_BG_CARD, corner_radius=8,
+                         border_width=1, border_color=_SB_BORDER)
+        self._var, self._command, self._btns = variable, command, {}
+        self._value = variable.get() if variable is not None else None
+        for i, v in enumerate(values):
+            self.grid_columnconfigure(i, weight=1)
+            btn = ctk.CTkButton(self, text=(labels or {}).get(v, v), width=10, height=26,
+                                corner_radius=6, font=font or ctk.CTkFont(size=12),
+                                command=lambda v=v: self._pick(v))
+            btn.grid(row=0, column=i, sticky="ew", pady=3,
+                     padx=(3 if i == 0 else 1, 3 if i == len(values) - 1 else 1))
+            self._btns[v] = btn
+        if variable is not None:
+            variable.trace_add("write", lambda *_: self._paint(variable.get()))
+        self._paint(self._value)
+
+    def _pick(self, value):
+        self.set(value)
+        if self._command:
+            self._command(value)
+
+    def set(self, value):
+        if self._var is not None and self._var.get() != value:
+            self._var.set(value)
+        self._paint(value)
+
+    def get(self):
+        return self._value
+
+    def _paint(self, value):
+        self._value = value
+        for v, btn in self._btns.items():
+            on = v == value
+            btn.configure(fg_color=_SEG_SELECTED if on else "transparent",
+                          hover_color=_SEG_SEL_HOV if on else _SB_SECTION,
+                          text_color="#ffffff" if on else _SEG_TEXT)
+
+
+class _StepView(ctk.CTkFrame):
+    """Pasos numerados del flujo de trabajo (1 Corpus → 2 Extracción → …).
+
+    Sustituye a las pestañas: el paso actual va en violeta y los completados,
+    en verde azulado con una marca."""
+
+    def __init__(self, master):
+        super().__init__(master, fg_color=_BG_ROOT, corner_radius=0)
+        bar = ctk.CTkFrame(self, fg_color=_BG_CARD, corner_radius=10,
+                           border_width=1, border_color=_BORDER)
+        bar.pack(fill="x", padx=18, pady=(14, 0))
+        self._bar = ctk.CTkFrame(bar, fg_color="transparent")
+        self._bar.pack(fill="x", padx=14, pady=9)
+        self._body = ctk.CTkFrame(self, fg_color=_BG_ROOT, corner_radius=0)
+        self._body.pack(fill="both", expand=True)
+        self._names, self._frames, self._steps, self._lines = [], {}, {}, []
+        self._done, self._current = set(), None
+
+    def add(self, name: str):
+        if self._names:
+            line = ctk.CTkFrame(self._bar, width=24, height=2, fg_color=_BORDER, corner_radius=0)
+            line.pack(side="left", fill="x", expand=True, padx=12)
+            self._lines.append(line)
+        self._names.append(name)
+        go = lambda n=name: self.set(n)
+        circle = ctk.CTkButton(self._bar, text=str(len(self._names)), width=26, height=26,
+                               corner_radius=13, border_width=2,
+                               font=ctk.CTkFont(size=12, weight="bold"), command=go)
+        circle.pack(side="left")
+        label = ctk.CTkButton(self._bar, text=name, width=10, height=26,
+                              fg_color="transparent", hover_color=_BG_CARD2,
+                              font=ctk.CTkFont(size=13), command=go)
+        label.pack(side="left", padx=(4, 0))
+        self._steps[name] = (circle, label)
+        self._frames[name] = ctk.CTkFrame(self._body, fg_color=_BG_ROOT, corner_radius=0)
+        if self._current is None:
+            self.set(name)
+        else:
+            self._refresh()
+        return self._frames[name]
+
+    def tab(self, name: str):
+        return self._frames[name]
+
+    def get(self) -> str:
+        return self._current
+
+    def set(self, name: str):
+        if self._current is not None:
+            self._frames[self._current].pack_forget()
+        self._current = name
+        self._frames[name].pack(fill="both", expand=True)
+        self._refresh()
+
+    def mark_done(self, name: str, done: bool = True):
+        (self._done.add if done else self._done.discard)(name)
+        self._refresh()
+
+    def _refresh(self):
+        for i, name in enumerate(self._names):
+            circle, label = self._steps[name]
+            current, done = name == self._current, name in self._done
+            if current:
+                circle.configure(text=str(i + 1), fg_color=_ACCENT, hover_color=_ACCENT_DIM,
+                                 border_color=_ACCENT, text_color="#ffffff")
+            elif done:
+                circle.configure(text="✓", fg_color=_TEAL, hover_color=_TEAL,
+                                 border_color=_TEAL, text_color="#ffffff")
+            else:
+                circle.configure(text=str(i + 1), fg_color=_BG_CARD, hover_color=_BG_CARD2,
+                                 border_color=_STEP_PENDING, text_color=_TEXT_MUTED)
+            label.configure(text_color=_TEXT if (current or done) else _TEXT_MUTED,
+                            font=ctk.CTkFont(size=13, weight="bold" if current else "normal"))
+            if i < len(self._lines):
+                self._lines[i].configure(fg_color=_TEAL if done else _BORDER)
+
+
 # ─────────────────────────────────────────────
 # Aplicación
 # ─────────────────────────────────────────────
@@ -178,6 +325,7 @@ class TeclaApp(ctk.CTk):
         self._doc_stats      = []     # [{doc_id, tokens, sentences, types}]
         self._documents      = []     # documentos enriquecidos (para evaluación)
         self._clean_folder   = ""
+        self._corpus_types   = 0      # tipos (lemas distintos) del corpus completo
 
         # ── Evaluación ──
         self._eval_running   = False
@@ -203,6 +351,7 @@ class TeclaApp(ctk.CTk):
         self._review_data    = {}     # CT → {status, notes}
         self._rev_selected   = None
         self._rev_term_btns  = {}     # CT → botón
+        self._rev_more_label = None   # aviso de candidatos no mostrados
 
         self._build_ui()
         self._load_session()
@@ -219,16 +368,7 @@ class TeclaApp(ctk.CTk):
         # Línea separadora entre sidebar y contenido
         ctk.CTkFrame(self, width=1, fg_color=_BORDER, corner_radius=0).pack(side="left", fill="y")
 
-        self._tabview = ctk.CTkTabview(
-            self, fg_color=_BG_ROOT,
-            segmented_button_fg_color=_BG_CARD2,
-            segmented_button_selected_color=_SEG_SELECTED,
-            segmented_button_selected_hover_color=_SEG_SEL_HOV,
-            segmented_button_unselected_color=_BG_CARD2,
-            segmented_button_unselected_hover_color=_BG_CARD,
-            text_color=_SEG_TEXT,
-            text_color_disabled=_SEG_TEXT,
-        )
+        self._tabview = _StepView(self)
         self._tabview.pack(side="right", fill="both", expand=True)
 
         for name in ("Corpus", "Extracción", "Evaluación", "Revisión"):
@@ -241,12 +381,12 @@ class TeclaApp(ctk.CTk):
                              background=_BG_CARD, foreground=_TEXT,
                              fieldbackground=_BG_CARD,
                              bordercolor=_BORDER, lightcolor=_BORDER, darkcolor=_BORDER,
-                             rowheight=28, font=("", 11))
+                             rowheight=30, font=("", 11))
         tree_style.configure("TECLA.Treeview.Heading",
                              background=_BG_CARD2, foreground=_TEXT_MUTED,
-                             relief="flat", font=("", 11), bordercolor=_BORDER)
+                             relief="flat", font=("", 10, "bold"), bordercolor=_BORDER)
         tree_style.map("TECLA.Treeview",
-                       background=[("selected", "#e8eaf0")],
+                       background=[("selected", _SB_SECTION)],
                        foreground=[("selected", _TEXT)])
         tree_style.map("TECLA.Treeview.Heading",
                        background=[("active", _BG_CARD)])
@@ -266,68 +406,80 @@ class TeclaApp(ctk.CTk):
         s = self._sidebar
 
         # ── Header ──
-        header = ctk.CTkFrame(s, fg_color=_SB_BG, corner_radius=0, height=100)
+        header = ctk.CTkFrame(s, fg_color=_SB_BG, corner_radius=0, height=86)
         header.pack(fill="x")
         header.pack_propagate(False)
 
-        ctk.CTkFrame(header, fg_color=_ACCENT, height=3, corner_radius=0).pack(fill="x", side="top")
-
         name_row = ctk.CTkFrame(header, fg_color="transparent")
-        name_row.place(relx=0.5, rely=0.52, anchor="center")
-
-        ctk.CTkLabel(name_row, text="TECLA",
-                     font=ctk.CTkFont(size=30, weight="bold"),
-                     text_color=_SB_TEXT).pack(side="left")
-
-        ctk.CTkLabel(header, text="Term Extraction and Corpus Linguistics Application",
+        name_row.pack(fill="x", padx=18, pady=(22, 0))
+        ctk.CTkLabel(name_row, text="T", width=40, height=40, corner_radius=10,
+                     fg_color=_ACCENT, text_color="#ffffff",
+                     font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
+        name_txt = ctk.CTkFrame(name_row, fg_color="transparent")
+        name_txt.pack(side="left", padx=(12, 0))
+        ctk.CTkLabel(name_txt, text="TECLA", height=22,
+                     font=ctk.CTkFont(size=20, weight="bold"),
+                     text_color=_SB_TEXT, anchor="w").pack(anchor="w")
+        ctk.CTkLabel(name_txt, text="Term Extraction and Corpus\nLinguistics Application",
                      font=ctk.CTkFont(size=9), text_color=_SB_MUTED,
-                     wraplength=220, justify="center",
-                     ).place(relx=0.5, rely=0.82, anchor="center")
+                     justify="left", anchor="w").pack(anchor="w")
+        ctk.CTkFrame(s, height=1, fg_color=_SB_BORDER, corner_radius=0).pack(fill="x")
 
         # ── Opciones principales ──
         scroll = ctk.CTkScrollableFrame(s, fg_color=_SB_BG, scrollbar_button_color=_SB_SECTION)
         scroll.pack(fill="both", expand=True, pady=(6, 0))
 
-        # DIRECTORIO DE TRABAJO
-        self._build_section(scroll, "Directorio de trabajo")
+        # CARPETA DE TRABAJO
+        self._build_section(scroll, "Carpeta de trabajo")
+        card = ctk.CTkFrame(scroll, fg_color=_BG_CARD, corner_radius=8,
+                            border_width=1, border_color=_SB_BORDER, cursor="hand2")
+        card.pack(fill="x", padx=14, pady=(2, 4))
+        icon = ctk.CTkLabel(card, text="📁", font=ctk.CTkFont(size=18))
+        icon.pack(side="left", padx=(10, 8), pady=8)
+        card_txt = ctk.CTkFrame(card, fg_color="transparent")
+        card_txt.pack(side="left", fill="x", expand=True, pady=6)
+        self._folder_name = ctk.CTkLabel(card_txt, text="", height=18, anchor="w",
+                                         font=ctk.CTkFont(size=12, weight="bold"),
+                                         text_color=_SB_TEXT)
+        self._folder_name.pack(fill="x")
+        self._folder_path = ctk.CTkLabel(card_txt, text="", height=14, anchor="w",
+                                         font=ctk.CTkFont(size=10), text_color=_SB_MUTED)
+        self._folder_path.pack(fill="x")
+        for w in (card, icon, card_txt, self._folder_name, self._folder_path):
+            w.bind("<Button-1>", lambda _e: self._browse_corpus())
+        self.corpus_path_var.trace_add("write", lambda *_: self._update_folder_card())
+        self._update_folder_card()
         ctk.CTkLabel(scroll,
-                     text="Los archivos PDF o TXT deben estar\nen una subcarpeta llamada  corpus/",
-                     font=ctk.CTkFont(size=9), text_color=_SB_MUTED,
-                     justify="left",
-                     ).pack(anchor="w", padx=18, pady=(4, 2))
-        ctk.CTkEntry(scroll, textvariable=self.corpus_path_var,
-                     placeholder_text="Ruta al directorio de trabajo…",
-                     fg_color=_SB_SECTION, border_color=_SB_BORDER,
-                     text_color=_SB_TEXT,
-                     ).pack(fill="x", padx=14, pady=(2, 4))
-        ctk.CTkButton(scroll, text="Seleccionar directorio…",
+                     text="Los PDF o TXT van en una subcarpeta «corpus».",
+                     font=ctk.CTkFont(size=10), text_color=_SB_MUTED,
+                     justify="left", wraplength=230,
+                     ).pack(anchor="w", padx=16, pady=(0, 2))
+        ctk.CTkButton(scroll, text="Elegir carpeta…", height=28,
                       fg_color="transparent", hover_color=_SB_SECTION,
                       border_width=1, border_color=_ACCENT,
-                      text_color=_ACCENT,
+                      text_color=_ACCENT, font=ctk.CTkFont(size=12),
                       command=self._browse_corpus,
-                      ).pack(fill="x", padx=14, pady=(0, 8))
+                      ).pack(fill="x", padx=14, pady=(2, 8))
 
         # LENGUA
         self._build_section(scroll, "Lengua")
-        ctk.CTkSegmentedButton(scroll, values=["auto", "es", "en"],
-                               variable=self.language_var,
-                               fg_color=_SB_SECTION, selected_color=_SEG_SELECTED,
-                               selected_hover_color=_SEG_SEL_HOV,
-                               unselected_color=_SB_SECTION,
-                               text_color=_SEG_TEXT,
-                               text_color_disabled=_SEG_TEXT,
-                               ).pack(fill="x", padx=14, pady=(4, 8))
+        _Segmented(scroll, values=["auto", "es", "en"],
+                   labels={"es": "español", "en": "inglés"},
+                   variable=self.language_var,
+                   ).pack(fill="x", padx=14, pady=(4, 8))
 
         # EXTRACCIÓN (esencial)
         self._build_section(scroll, "Extracción")
         ctk.CTkCheckBox(scroll, text="Incluir candidatos monoléxicos",
                         variable=self._include_mono_var,
+                        checkbox_width=18, checkbox_height=18, border_width=2,
+                        border_color=_STEP_PENDING, font=ctk.CTkFont(size=12),
                         fg_color=_ACCENT, hover_color=_ACCENT_DIM,
-                        checkmark_color=_SB_BG, text_color=_SB_TEXT,
+                        checkmark_color="#ffffff", text_color=_SB_TEXT,
                         ).pack(anchor="w", padx=18, pady=(4, 4))
 
         self._build_section(scroll, "Perfil de puntuación")
-        ctk.CTkSegmentedButton(scroll, values=list(_WEIGHT_PRESETS.keys()),
+        _Segmented(scroll, values=list(_WEIGHT_PRESETS.keys()),
                                variable=self.weight_preset,
                                fg_color=_SB_SECTION, selected_color=_SEG_SELECTED,
                                selected_hover_color=_SEG_SEL_HOV,
@@ -359,7 +511,7 @@ class TeclaApp(ctk.CTk):
         self._build_section(self._adv_frame, "Stoplist adicional")
         self._stoplist_entry = ctk.CTkEntry(self._adv_frame,
                                             placeholder_text="palabra1, palabra2, …",
-                                            fg_color=_SB_SECTION, border_color=_SB_BORDER,
+                                            fg_color=_BG_CARD, border_color=_SB_BORDER,
                                             text_color=_SB_TEXT)
         self._stoplist_entry.pack(fill="x", padx=14, pady=(4, 4))
         ctk.CTkButton(self._adv_frame, text="Cargar desde archivo .txt…",
@@ -380,7 +532,7 @@ class TeclaApp(ctk.CTk):
                      ).pack(fill="x", padx=14, pady=(4, 4))
         ctk.CTkEntry(self._adv_frame, textvariable=self.grammar_path_var,
                      placeholder_text="grammar.yaml (opcional)",
-                     fg_color=_SB_SECTION, border_color=_SB_BORDER,
+                     fg_color=_BG_CARD, border_color=_SB_BORDER,
                      text_color=_SB_TEXT,
                      ).pack(fill="x", padx=14, pady=(0, 4))
         ctk.CTkButton(self._adv_frame, text="Seleccionar gramática…",
@@ -431,7 +583,7 @@ class TeclaApp(ctk.CTk):
             self._adv_frame, text="Percentil mínimo",
             font=ctk.CTkFont(size=11), text_color=_SB_MUTED, anchor="w",
         ).pack(fill="x", padx=18, pady=(4, 2))
-        self._percentile_seg = ctk.CTkSegmentedButton(
+        self._percentile_seg = _Segmented(
             self._adv_frame,
             values=["—", "p25", "p50", "p75", "p90"],
             fg_color=_SB_SECTION, selected_color=_SEG_SELECTED,
@@ -469,18 +621,25 @@ class TeclaApp(ctk.CTk):
         self._run_btn.pack(fill="x", padx=14, pady=12)
 
     def _build_section(self, parent, label: str):
-        """Cabecera de sección en la sidebar oscura."""
-        band = ctk.CTkFrame(parent, fg_color=_SB_SECTION, corner_radius=4, height=22)
-        band.pack(fill="x", padx=10, pady=(8, 2))
-        band.pack_propagate(False)
-        inner = ctk.CTkFrame(band, fg_color="transparent")
-        inner.pack(fill="both", expand=True)
-        ctk.CTkFrame(inner, width=3, fg_color=_ACCENT, corner_radius=2,
-                     ).pack(side="left", fill="y", padx=(4, 6), pady=3)
-        ctk.CTkLabel(inner, text=label.upper(),
+        """Cabecera de sección de la sidebar."""
+        ctk.CTkLabel(parent, text=label.upper(), height=18,
                      font=ctk.CTkFont(size=10, weight="bold"),
                      text_color=_SB_MUTED, anchor="w",
-                     ).pack(side="left", fill="both", expand=True)
+                     ).pack(fill="x", padx=18, pady=(12, 2))
+
+    def _update_folder_card(self):
+        """Muestra la carpeta de trabajo por su nombre, con la ruta debajo."""
+        raw = self.corpus_path_var.get().strip()
+        if not raw:
+            self._folder_name.configure(text="Ninguna carpeta elegida")
+            self._folder_path.configure(text="Pulsa para seleccionarla")
+            return
+        path = Path(raw)
+        parent = str(path.parent).replace(str(Path.home()), "~", 1)
+        if len(parent) > 34:
+            parent = "…" + parent[-33:]
+        self._folder_name.configure(text=path.name or raw)
+        self._folder_path.configure(text=parent)
 
     # ═══════════════════════════════════════════
     # Pestaña 1 — Corpus
@@ -488,18 +647,51 @@ class TeclaApp(ctk.CTk):
 
     def _build_tab_corpus(self):
         tab = self._tabview.tab("Corpus")
+        # ── Bienvenida (hasta que hay un corpus cargado) ──
+        self._corpus_welcome = ctk.CTkFrame(tab, fg_color=_BG_CARD, corner_radius=10,
+                                            border_width=1, border_color=_BORDER)
+        self._corpus_welcome.pack(fill="x", padx=18, pady=(16, 8))
+        ctk.CTkLabel(self._corpus_welcome, text="Empieza por tu corpus",
+                     font=ctk.CTkFont(size=18, weight="bold"),
+                     text_color=_TEXT, anchor="w").pack(fill="x", padx=22, pady=(20, 0))
+        ctk.CTkLabel(self._corpus_welcome,
+                     text="TECLA recorre contigo las fases del trabajo terminográfico: "
+                          "corpus, extracción, evaluación y revisión. Para comenzar:",
+                     font=ctk.CTkFont(size=12), text_color=_TEXT_MUTED,
+                     anchor="w", justify="left").pack(fill="x", padx=22, pady=(2, 12))
+        steps = ctk.CTkFrame(self._corpus_welcome, fg_color="transparent")
+        steps.pack(fill="x", padx=16, pady=(0, 20))
+        for i, (title, text) in enumerate([
+                ("Elige la carpeta", "Selecciona a la izquierda la carpeta de trabajo, "
+                                     "con tus textos en PDF o TXT."),
+                ("Indica la lengua", "Español, inglés o detección automática."),
+                ("Pulsa «Ejecutar»", "TECLA procesa los textos y propone los "
+                                     "candidatos a término.")]):
+            steps.grid_columnconfigure(i, weight=1, uniform="inicio")
+            box = ctk.CTkFrame(steps, fg_color=_BG_ROOT, corner_radius=10,
+                               border_width=1, border_color=_SB_BORDER)
+            box.grid(row=0, column=i, sticky="nsew", padx=6)
+            ctk.CTkLabel(box, text=str(i + 1), width=28, height=28, corner_radius=14,
+                         fg_color=_SB_SECTION, text_color=_ACCENT,
+                         font=ctk.CTkFont(size=13, weight="bold"),
+                         ).pack(anchor="w", padx=16, pady=(16, 6))
+            ctk.CTkLabel(box, text=title, font=ctk.CTkFont(size=13, weight="bold"),
+                         text_color=_TEXT, anchor="w").pack(fill="x", padx=16)
+            ctk.CTkLabel(box, text=text, font=ctk.CTkFont(size=12), text_color=_TEXT_MUTED,
+                         anchor="w", justify="left", wraplength=230,
+                         ).pack(fill="x", padx=16, pady=(2, 16))
+
+        # El resto del paso se muestra cuando el corpus está procesado
+        self._corpus_body = ctk.CTkFrame(tab, fg_color="transparent")
+        tab = self._corpus_body
         _tab_header(tab, "Corpus",
                     "Documentos procesados, estadísticas lingüísticas y metadatos del corpus.")
 
-        # ── Tarjeta de resumen ──
-        summary = ctk.CTkFrame(tab, fg_color=_BG_CARD, corner_radius=10,
-                               border_width=1, border_color=_BORDER)
-        summary.pack(fill="x", padx=18, pady=(18, 8))
-        self._corpus_summary_label = ctk.CTkLabel(
-            summary, text="Sin corpus cargado. Realiza una extracción primero.",
-            font=ctk.CTkFont(size=12), text_color=_TEXT_MUTED,
-        )
-        self._corpus_summary_label.pack(pady=12)
+        # ── Cifras del corpus ──
+        self._corpus_cards = _stat_cards(tab, [
+            ("docs", "documentos"), ("tokens", "tokens"), ("sents", "oraciones"),
+            ("types", "tipos únicos"), ("ttr", "TTR"),
+        ])
 
         # ── Cabecera tabla ──
         hdr = ctk.CTkFrame(tab, fg_color="transparent")
@@ -618,14 +810,17 @@ class TeclaApp(ctk.CTk):
     def _render_corpus_tab(self):
         total_tok   = sum(d["tokens"]    for d in self._doc_stats)
         total_sent  = sum(d["sentences"] for d in self._doc_stats)
-        total_types = sum(d["types"]     for d in self._doc_stats)
+        total_types = self._corpus_types or sum(d["types"] for d in self._doc_stats)
         corpus_ttr  = round(total_types / total_tok, 4) if total_tok else 0.0
-        self._corpus_summary_label.configure(
-            text=(f"  {len(self._doc_stats)} documentos   ·   {total_tok:,} tokens"
-                  f"   ·   {total_sent:,} oraciones   ·   {total_types:,} tipos únicos"
-                  f"   ·   TTR {corpus_ttr:.4f}  "),
-            text_color=_ACCENT,
-        )
+        for key, value in (("docs", _miles(len(self._doc_stats))), ("tokens", _miles(total_tok)),
+                           ("sents", _miles(total_sent)), ("types", _miles(total_types)),
+                           ("ttr", f"{corpus_ttr:.4f}")):
+            self._corpus_cards[key].configure(text=value)
+        self._ext_cards["docs"].configure(text=_miles(len(self._doc_stats)))
+        self._ext_cards["tokens"].configure(text=_miles(total_tok))
+        self._corpus_welcome.pack_forget()
+        self._corpus_body.pack(fill="both", expand=True)
+        self._tabview.mark_done("Corpus")
 
         self._corpus_tree.delete(*self._corpus_tree.get_children())
         for i, d in enumerate(self._doc_stats, 1):
@@ -635,9 +830,9 @@ class TeclaApp(ctk.CTk):
                 values=(
                     f"{i}.",
                     d["doc_id"],
-                    f"{d['tokens']:,}",
-                    f"{d['sentences']:,}",
-                    f"{d['types']:,}",
+                    _miles(d['tokens']),
+                    _miles(d['sentences']),
+                    _miles(d['types']),
                     f"{d['ttr']:.4f}",
                     meta.get("autor", ""),
                     meta.get("año", ""),
@@ -657,7 +852,7 @@ class TeclaApp(ctk.CTk):
             return
         total_tok   = sum(d["tokens"]    for d in self._doc_stats)
         total_sent  = sum(d["sentences"] for d in self._doc_stats)
-        total_types = sum(d["types"]     for d in self._doc_stats)
+        total_types = self._corpus_types or sum(d["types"] for d in self._doc_stats)
         corpus_ttr  = round(total_types / total_tok, 4) if total_tok else 0.0
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -684,11 +879,18 @@ class TeclaApp(ctk.CTk):
         _tab_header(tab, "Extracción de candidatos a término",
                     "Registro del proceso y tabla de candidatos ordenados por terminologicidad.")
 
+        # ── Cifras ──
+        self._ext_cards = _stat_cards(tab, [
+            ("docs", "documentos"), ("tokens", "tokens"),
+            ("cands", "candidatos a término"), ("shown", "mostrados con los filtros"),
+        ])
+
         # ── Log ──
         log_hdr = ctk.CTkFrame(tab, fg_color="transparent")
-        log_hdr.pack(fill="x", padx=18, pady=(16, 0))
+        log_hdr.pack(fill="x", padx=18, pady=(6, 0))
         ctk.CTkLabel(log_hdr, text="Registro del proceso",
-                     font=ctk.CTkFont(size=13, weight="bold")).pack(side="left")
+                     font=ctk.CTkFont(size=13, weight="bold"),
+                     text_color=_TEXT).pack(side="left")
         ctk.CTkButton(log_hdr, text="Limpiar", width=68, height=24,
                       fg_color=_BG_CARD, hover_color=_BG_CARD2,
                       border_width=1, border_color=_BORDER,
@@ -698,7 +900,7 @@ class TeclaApp(ctk.CTk):
                       ).pack(side="right")
 
         self.log_box = ctk.CTkTextbox(
-            tab, height=130, fg_color=_BG_LOG, text_color=_TEXT_LOG,
+            tab, height=88, fg_color=_BG_LOG, text_color=_TEXT_LOG,
             font=ctk.CTkFont(size=12),
             corner_radius=8, border_width=1, border_color=_BORDER,
         )
@@ -715,7 +917,7 @@ class TeclaApp(ctk.CTk):
         # ── Cabecera de resultados ──
         res_hdr = ctk.CTkFrame(tab, fg_color="transparent")
         res_hdr.pack(fill="x", padx=18, pady=(0, 4))
-        ctk.CTkLabel(res_hdr, text="Términos extraídos",
+        ctk.CTkLabel(res_hdr, text="Candidatos a término",
                      font=ctk.CTkFont(size=13, weight="bold"),
                      text_color=_TEXT).pack(side="left")
 
@@ -752,7 +954,7 @@ class TeclaApp(ctk.CTk):
         ctk.CTkLabel(sort_bar, text="Ordenar por:",
                      font=ctk.CTkFont(size=11), text_color=_TEXT_MUTED,
                      ).pack(side="left", padx=(0, 6))
-        ctk.CTkSegmentedButton(sort_bar, values=list(_SORT_KEY_MAP.keys()),
+        _Segmented(sort_bar, values=list(_SORT_KEY_MAP.keys()),
                                variable=self._sort_key_var,
                                fg_color=_BG_CARD, selected_color=_SEG_SELECTED,
                                selected_hover_color=_SEG_SEL_HOV,
@@ -777,6 +979,7 @@ class TeclaApp(ctk.CTk):
             ("var",      "Variantes", 180,  False, "w", True),
             ("pat",      "Patrón",    130,  False, "w", False),
             ("score",    "Score",      66,  False, "e", True),
+            ("bar",      "",          118,  False, "w", True),
             ("tfidf",    "TF-IDF",     66,  False, "e", True),
             ("cval",     "C-val",      62,  False, "e", False),
             ("ncval",    "NC-val",     62,  False, "e", True),
@@ -792,13 +995,14 @@ class TeclaApp(ctk.CTk):
                      font=ctk.CTkFont(size=10), text_color=_TEXT_MUTED,
                      ).pack(side="left", padx=(8, 4))
         for cid, heading, width, stretch, anchor, default_on in self._RESULT_COLS:
-            if cid in ("num", "term"):
-                continue  # siempre visibles, no se togglean
+            if cid in ("num", "term", "bar"):
+                continue  # siempre visibles (la barra acompaña a la columna Score)
             var = ctk.BooleanVar(value=default_on)
             self._col_visible[cid] = var
             ctk.CTkCheckBox(
                 toggle_row, text=heading, variable=var,
-                width=16, height=16,
+                width=16, height=16, checkbox_width=15, checkbox_height=15,
+                border_width=2, border_color=_STEP_PENDING, corner_radius=4,
                 fg_color=_ACCENT, hover_color=_ACCENT_DIM,
                 checkmark_color="#ffffff",
                 text_color=_TEXT_MUTED, font=ctk.CTkFont(size=10),
@@ -908,14 +1112,14 @@ class TeclaApp(ctk.CTk):
         fig2.subplots_adjust(wspace=0.35, top=0.88, bottom=0.14, left=0.07, right=0.97)
         _style(ax3); _style(ax4)
 
-        sc = ax3.scatter(tfidf, ncval, c=scores, cmap="YlGn", alpha=0.7, s=20, edgecolors="none")
+        sc = ax3.scatter(tfidf, ncval, c=scores, cmap="Purples", alpha=0.7, s=20, edgecolors="none")
         ax3.set_title("Correlación entre TF-IDF y NC-value", color=_TEXT, fontsize=9, weight="bold")
         ax3.set_xlabel("TF-IDF", color=_TEXT_MUTED, fontsize=8)
         ax3.set_ylabel("NC-value", color=_TEXT_MUTED, fontsize=8)
         cb = fig2.colorbar(sc, ax=ax3)
         cb.set_label("Terminologicidad", color=_TEXT_MUTED, fontsize=7)
 
-        ax4.scatter(doc_frq, freqs, c=scores, cmap="YlGn", alpha=0.7, s=20, edgecolors="none")
+        ax4.scatter(doc_frq, freqs, c=scores, cmap="Purples", alpha=0.7, s=20, edgecolors="none")
         ax4.set_title("Frecuencia de corpus vs. cobertura documental", color=_TEXT, fontsize=9, weight="bold")
         ax4.set_xlabel("Número de documentos", color=_TEXT_MUTED, fontsize=8)
         ax4.set_ylabel("Frecuencia total", color=_TEXT_MUTED, fontsize=8)
@@ -952,7 +1156,7 @@ class TeclaApp(ctk.CTk):
                      ).pack(fill="x", padx=10, pady=(12, 4))
 
         self._rev_filter_var = ctk.StringVar(value="Todos")
-        ctk.CTkSegmentedButton(left,
+        _Segmented(left,
                                values=["Todos", "Pendiente", "Aprobado", "Rechazado"],
                                variable=self._rev_filter_var,
                                fg_color=_BG_CARD2, selected_color=_SEG_SELECTED,
@@ -1084,11 +1288,16 @@ class TeclaApp(ctk.CTk):
         self._rev_term_btns = {}
 
         filter_val = self._rev_filter_var.get().lower()
+        max_rows   = 300   # la lista se limita para que la interfaz no se bloquee
+        omitted    = 0
 
         for t in self._all_results:
             term  = t["lemma"]
             entry = self._review_data.get(term, {"status": "pendiente", "notes": ""})
             if filter_val != "todos" and entry["status"] != filter_val:
+                continue
+            if len(self._rev_term_btns) >= max_rows:
+                omitted += 1
                 continue
 
             color = _STATUS_COLOR[entry["status"]]
@@ -1104,6 +1313,16 @@ class TeclaApp(ctk.CTk):
             )
             btn.pack(fill="x", pady=1)
             self._rev_term_btns[term] = btn
+
+        if self._rev_more_label is not None:
+            self._rev_more_label.destroy()
+            self._rev_more_label = None
+        if omitted:
+            self._rev_more_label = ctk.CTkLabel(
+                self._rev_list_scroll,
+                text=f"Se muestran los {max_rows} primeros.\nQuedan {_miles(omitted)} más: usa el filtro.",
+                text_color=_TEXT_MUTED, font=ctk.CTkFont(size=10), justify="left")
+            self._rev_more_label.pack(anchor="w", padx=8, pady=8)
 
         if not self._rev_term_btns:
             ctk.CTkLabel(self._rev_list_scroll, text="Sin términos.",
@@ -1287,7 +1506,7 @@ class TeclaApp(ctk.CTk):
         self._eval_btn = ctk.CTkButton(
             btn_row, text="Calcular representatividad",
             width=240, height=28,
-            fg_color=_ACCENT, hover_color=_ACCENT2,
+            fg_color=_ACCENT, hover_color=_ACCENT_DIM,
             text_color="#ffffff", font=ctk.CTkFont(size=11, weight="bold"),
             state="disabled",
             command=self._start_full_eval,
@@ -1494,8 +1713,8 @@ class TeclaApp(ctk.CTk):
             dp_sum    = dp_stats(dp_scores, self._all_results)
             rep_fast  = compute_representativity_score(heaps, hapax, dp_sum)
             self.after(0, self._render_eval_fast, heaps, dp_scores, rep_fast)
-            self.after(0, self._eval_btn.configure,
-                       {"text": "Calculando estabilidad (bootstrap)…"})
+            self.after(0, lambda: self._eval_btn.configure(
+                text="Calculando estabilidad (bootstrap)…"))
 
             # ── Fase 2: bootstrap (más lento) ─────────────────────────────
             stability = compute_bootstrap_stability(self._all_results, self._doc_stats)
@@ -1510,10 +1729,11 @@ class TeclaApp(ctk.CTk):
             self.after(0, self._log, f"[Evaluación] {exc}")
         finally:
             self._eval_running = False
-            self.after(0, self._eval_btn.configure,
-                       {"state": "normal", "text": "Recalcular representatividad"})
+            self.after(0, lambda: self._eval_btn.configure(
+                state="normal", text="Recalcular representatividad"))
 
     def _render_eval_fast(self, heaps, dp_scores, rep):
+        self._tabview.mark_done("Evaluación")
         score = rep["score"]
         label = rep["label"]
         color = rep["color"]
@@ -2158,6 +2378,9 @@ class TeclaApp(ctk.CTk):
                                       stretch=stretch, minwidth=orig_width)
         else:
             self._results_tree.column(col_id, width=0, stretch=False, minwidth=0)
+        if col_id == "score":
+            self._results_tree.column("bar", width=118 if visible else 0, stretch=False,
+                                      minwidth=118 if visible else 0)
 
     def _select_all(self):
         self._results_tree.selection_set(self._results_tree.get_children())
@@ -2308,6 +2531,9 @@ class TeclaApp(ctk.CTk):
                 "ttr":       ttr,
             })
 
+        # Tipos del corpus completo (no la suma de los tipos de cada documento)
+        self._corpus_types = len({t["lemma"] for doc in documents for t in doc["tokens"]})
+
         self._load_corpus_metadata()
         self._render_corpus_tab()
 
@@ -2337,6 +2563,7 @@ class TeclaApp(ctk.CTk):
         self._percentile_seg.set("—")
 
         self._apply_filters()
+        self._tabview.mark_done("Extracción", bool(results))
         self._update_graficos()
         if self._eval_btn is not None:
             self._eval_btn.configure(state="normal")
@@ -2346,6 +2573,10 @@ class TeclaApp(ctk.CTk):
         self._results_data = []
         self._all_results  = []
         self._term_count_label.configure(text="")
+        self._ext_cards["cands"].configure(text="—")
+        self._ext_cards["shown"].configure(text="—")
+        self._tabview.mark_done("Extracción", False)
+        self._tabview.mark_done("Evaluación", False)
 
     def _render_results(self, results):
         self._results_tree.delete(*self._results_tree.get_children())
@@ -2354,14 +2585,19 @@ class TeclaApp(ctk.CTk):
         n     = len(results)
         total = len(self._all_results)
         self._term_count_label.configure(
-            text=f"{n} término{'s' if n != 1 else ''}" if n == total
-            else f"{n} de {total} términos"
+            text=f"{_miles(n)} candidato{'s' if n != 1 else ''}" if n == total
+            else f"{_miles(n)} de {_miles(total)} candidatos"
         )
+
+        self._ext_cards["cands"].configure(text=_miles(total) if total else "—")
+        self._ext_cards["shown"].configure(text=_miles(n) if total else "—")
 
         if not results:
             return
 
+        top = max((r["terminologicity"] for r in self._all_results), default=0) or 1
         for i, t in enumerate(results, 1):
+            filled = max(0, min(10, round(10 * t["terminologicity"] / top)))
             pats     = "/".join(t.get("patterns", []))
             variants = t.get("variants", [])
             var_str  = " · ".join(variants) if variants else "—"
@@ -2373,6 +2609,7 @@ class TeclaApp(ctk.CTk):
                     var_str,
                     pats,
                     f"{t['terminologicity']:.4f}",
+                    "▰" * filled + "▱" * (10 - filled),
                     f"{t.get('tf_idf', 0):.4f}",
                     f"{t.get('c_value', 0):.4f}",
                     f"{t.get('nc_value', 0):.4f}",
