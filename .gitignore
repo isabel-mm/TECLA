@@ -33,6 +33,10 @@
 !/scripts/
 /scripts/test.py
 
+# --- Página de presentación (GitHub Pages) y demostración en línea ---
+!/web/
+!/demo/
+
 # ============================================================
 # Dentro de las carpetas permitidas
 # ============================================================
