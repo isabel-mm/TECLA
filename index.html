@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TECLA · Term Extraction and Corpus Linguistics Application</title>
+<meta name="description" content="TECLA es una herramienta de código abierto para preparar un corpus especializado, extraer sus candidatos a término, comprobar si el corpus es suficiente y revisar el resultado.">
+<style>
+:root{
+  --violeta:#7c3aed; --violeta-osc:#6d28d9; --lavanda:#f5f3ff; --lavanda-borde:#ddd6fe;
+  --tinta:#1e1b4b; --gris:#64748b; --borde:#e2e8f0; --fondo:#fbfaff; --blanco:#ffffff;
+  --teal:#0d9488; --codigo:#1e1b4b; --codigo-texto:#ddd6fe;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--fondo);color:var(--tinta);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  line-height:1.6;font-size:17px}
+a{color:var(--violeta-osc)}
+.ancho{max-width:1080px;margin:0 auto;padding:0 20px}
+
+header.barra{background:var(--blanco);border-bottom:1px solid var(--borde);position:sticky;top:0;z-index:5}
+header.barra .ancho{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:60px;flex-wrap:wrap}
+.marca{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.04em;text-decoration:none;color:var(--tinta)}
+.logo{width:34px;height:34px;border-radius:9px;background:var(--violeta);color:#fff;display:grid;place-items:center;font-weight:800;font-size:18px}
+nav{display:flex;gap:20px;flex-wrap:wrap;font-size:15px}
+nav a{text-decoration:none;color:var(--gris)}
+nav a:hover{color:var(--violeta-osc)}
+
+.portada{background:var(--lavanda);border-bottom:1px solid var(--lavanda-borde);padding:64px 0 0}
+.portada h1{font-size:clamp(34px,6vw,54px);line-height:1.1;margin:0 0 6px;letter-spacing:.02em}
+.portada .sub{color:var(--gris);font-size:15px;letter-spacing:.06em;text-transform:uppercase;margin:0 0 18px}
+.portada p.lema{font-size:clamp(18px,2.4vw,22px);max-width:720px;margin:0 0 26px}
+.botones{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:44px}
+.boton{display:inline-block;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:600;font-size:16px;border:1px solid var(--violeta)}
+.boton.principal{background:var(--violeta);color:#fff}
+.boton.principal:hover{background:var(--violeta-osc)}
+.boton.secundario{background:var(--blanco);color:var(--violeta-osc)}
+.portada img{display:block;width:100%;border-radius:12px 12px 0 0;border:1px solid var(--lavanda-borde);border-bottom:0;box-shadow:0 -8px 40px rgba(76,29,149,.12)}
+
+section{padding:64px 0}
+section h2{font-size:clamp(24px,3.4vw,32px);margin:0 0 8px;line-height:1.2}
+section p.entrada{color:var(--gris);max-width:760px;margin:0 0 32px}
+
+.paso{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:32px;align-items:center;margin-bottom:48px}
+.paso:nth-child(even) .texto{order:2}
+.paso .num{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--violeta);color:#fff;font-weight:700;font-size:15px;margin-bottom:10px}
+.paso h3{margin:0 0 8px;font-size:22px}
+.paso p{margin:0;color:#3f3d63}
+.paso img{width:100%;border-radius:10px;border:1px solid var(--borde);box-shadow:0 8px 28px rgba(30,27,75,.10)}
+
+.franja{background:var(--blanco);border-top:1px solid var(--borde);border-bottom:1px solid var(--borde)}
+.rejilla{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}
+.tarjeta{background:var(--fondo);border:1px solid var(--borde);border-radius:12px;padding:20px}
+.tarjeta h3{margin:0 0 6px;font-size:18px}
+.tarjeta p{margin:0;color:#3f3d63;font-size:16px}
+
+pre{background:var(--codigo);color:var(--codigo-texto);border-radius:12px;padding:20px;overflow-x:auto;font-size:15px;line-height:1.7;margin:0 0 16px}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+p code{background:var(--lavanda);border:1px solid var(--lavanda-borde);border-radius:5px;padding:1px 6px;font-size:.92em}
+.nota{color:var(--gris);font-size:15px}
+
+.enlaces{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.enlaces a{display:block;background:var(--blanco);border:1px solid var(--borde);border-radius:12px;padding:18px 20px;text-decoration:none;color:var(--tinta)}
+.enlaces a:hover{border-color:var(--violeta)}
+.enlaces b{display:block;color:var(--violeta-osc);margin-bottom:2px}
+.enlaces span{color:var(--gris);font-size:15px}
+
+footer{border-top:1px solid var(--borde);padding:28px 0 40px;color:var(--gris);font-size:15px}
+
+@media (max-width:780px){
+  .paso{grid-template-columns:1fr;gap:16px}
+  .paso:nth-child(even) .texto{order:0}
+  section{padding:44px 0}
+  .portada{padding-top:40px}
+}
+</style>
+</head>
+<body>
+
+<header class="barra">
+  <div class="ancho">
+    <a class="marca" href="#"><span class="logo">T</span>TECLA</a>
+    <nav>
+      <a href="#flujo">Cómo funciona</a>
+      <a href="#instalacion">Instalación</a>
+      <a href="#por-que">Por qué de escritorio</a>
+      <a href="#recursos">Recursos</a>
+    </nav>
+  </div>
+</header>
+
+<div class="portada">
+  <div class="ancho">
+    <p class="sub">Term Extraction and Corpus Linguistics Application</p>
+    <h1>TECLA</h1>
+    <p class="lema">Una herramienta de código abierto para trabajar con la terminología de un dominio a partir de sus textos, sin necesidad de programar.</p>
+    <div class="botones">
+      <a class="boton principal" href="https://huggingface.co/spaces/issyinthesky/TECLA">Probar la demostración</a>
+      <a class="boton secundario" href="https://github.com/isabel-mm/TECLA">Código en GitHub</a>
+    </div>
+    <img src="img/extraccion.png" alt="Pantalla de extracción de TECLA: cifras del corpus y tabla de candidatos a término ordenada por terminologicidad">
+  </div>
+</div>
+
+<section id="flujo">
+  <div class="ancho">
+    <h2>El trabajo terminográfico, paso a paso</h2>
+    <p class="entrada">TECLA reúne en un mismo entorno las fases del trabajo terminográfico basado en corpus. Se recorren en orden, se puede volver atrás, y en cada momento quedan a la vista los parámetros y las cifras que intervienen en cada decisión.</p>
+
+    <div class="paso">
+      <div class="texto">
+        <span class="num">1</span>
+        <h3>Preparar el corpus</h3>
+        <p>Se elige la carpeta con los documentos, en PDF o en texto plano. TECLA los convierte a texto, los limpia y los analiza lingüísticamente, y muestra los datos descriptivos de cada documento y del corpus: <em>tokens</em>, tipos, TTR, hápax, densidad léxica y longitud de oración.</p>
+      </div>
+      <img src="img/corpus.png" alt="Pantalla Corpus: tabla de documentos con sus estadísticas y panel de metadatos" loading="lazy">
+    </div>
+
+    <div class="paso">
+      <div class="texto">
+        <span class="num">2</span>
+        <h3>Extraer los candidatos a término</h3>
+        <p>Primero, una etapa lingüística: se buscan las secuencias que siguen los patrones gramaticales habituales de los términos. Después, una estadística: <em>TF-IDF</em>, <em>C-value</em> y <em>NC-value</em> se combinan en un índice de terminologicidad que ordena la lista.</p>
+      </div>
+      <img src="img/extraccion.png" alt="Pantalla Extracción: tabla de candidatos con sus medidas" loading="lazy">
+    </div>
+
+    <div class="paso">
+      <div class="texto">
+        <span class="num">3</span>
+        <h3>Comprobar si el corpus es suficiente</h3>
+        <p>Antes de dar por bueno un inventario conviene preguntarse si el corpus recoge la terminología del dominio. TECLA aplica cuatro tests de adecuación terminológica: cobertura, saturación, dispersión y estabilidad.</p>
+      </div>
+      <img src="img/evaluacion.png" alt="Pantalla Evaluación: índice de representatividad y dispersión de los candidatos" loading="lazy">
+    </div>
+
+    <div class="paso">
+      <div class="texto">
+        <span class="num">4</span>
+        <h3>Revisar y exportar</h3>
+        <p>Ningún sistema automático sustituye el juicio del especialista. Cada candidato se aprueba, se rechaza o se deja pendiente, con notas y con todas sus cifras a la vista. El inventario revisado se exporta a CSV y a TBX-Basic (ISO 30042).</p>
+      </div>
+      <img src="img/revision.png" alt="Pantalla Revisión: lista de candidatos con su estado y panel de detalle" loading="lazy">
+    </div>
+  </div>
+</section>
+
+<section id="instalacion" class="franja">
+  <div class="ancho">
+    <h2>Instalación</h2>
+    <p class="entrada">TECLA es un paquete de Python (versión 3.9 o superior) y funciona en un ordenador personal, sin equipos especiales.</p>
+<pre><code>git clone https://github.com/isabel-mm/TECLA.git
+cd TECLA
+pip install -e .
+
+# Modelos lingüísticos para español e inglés
+python -m spacy download es_core_news_md
+python -m spacy download en_core_web_lg
+
+# Abrir la interfaz gráfica
+python gui/tecla_gui.py</code></pre>
+    <p class="nota">También puede usarse desde la línea de comandos, con las órdenes <code>tecla extract</code>, <code>tecla stats</code> y <code>tecla evaluate</code>, o importarse desde un programa en Python.</p>
+  </div>
+</section>
+
+<section id="por-que">
+  <div class="ancho">
+    <h2>Por qué una aplicación de escritorio</h2>
+    <p class="entrada">TECLA se instala y se ejecuta en el propio ordenador. La demostración en línea es solo un escaparate.</p>
+    <div class="rejilla">
+      <div class="tarjeta"><h3>Tus textos no salen de tu ordenador</h3><p>Se trabaja a menudo con artículos y libros sujetos a derechos de autor, que no deben subirse a un servidor ajeno.</p></div>
+      <div class="tarjeta"><h3>Reproducible</h3><p>El código de cada versión queda publicado: cualquiera puede repetir un análisis con la misma herramienta.</p></div>
+      <div class="tarjeta"><h3>Independiente</h3><p>No hay un servidor que mantener ni un servicio del que depender.</p></div>
+      <div class="tarjeta"><h3>Adaptable</h3><p>La gramática de patrones es un fichero legible que puede modificarse o sustituirse por otra.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="recursos" class="franja">
+  <div class="ancho">
+    <h2>Recursos</h2>
+    <p class="entrada">TECLA se distribuye con licencia MIT.</p>
+    <ul class="enlaces">
+      <li><a href="https://github.com/isabel-mm/TECLA"><b>Código fuente</b><span>Repositorio en GitHub, con las pruebas automáticas</span></a></li>
+      <li><a href="https://huggingface.co/spaces/issyinthesky/TECLA"><b>Demostración en línea</b><span>La extracción, sobre unos pocos textos</span></a></li>
+      <li><a href="https://github.com/isabel-mm/TECLA#readme"><b>Documentación</b><span>Instalación, línea de comandos y uso desde Python</span></a></li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <div class="ancho">
+    TECLA · Isabel Moyano-Moreno · Universidad de Cádiz · Licencia MIT
+  </div>
+</footer>
+
+</body>
+</html>
