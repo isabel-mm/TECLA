@@ -15,6 +15,7 @@ import tkinter.ttk as ttk
 from tkinter import filedialog, messagebox
 
 from pipeline.pipeline import run_tecla_pipeline
+from tecla.extractor.hybrid_extractor import display_variants
 
 # ─────────────────────────────────────────────
 # Tema y constantes
@@ -1371,7 +1372,7 @@ class TeclaApp(ctk.CTk):
             self._rv["pattern"].configure(
                 text=" / ".join(t_data.get("patterns", [])) or "—"
             )
-            variants = t_data.get("variants", [])
+            variants = display_variants(t_data)
             self._rv["variants"].configure(
                 text="Variantes: " + " · ".join(variants) if variants else ""
             )
@@ -2646,7 +2647,7 @@ class TeclaApp(ctk.CTk):
         for i, t in enumerate(results, 1):
             filled = max(0, min(10, round(10 * t["terminologicity"] / top)))
             pats     = "/".join(t.get("patterns", []))
-            variants = t.get("variants", [])
+            variants = display_variants(t)
             var_str  = " · ".join(variants) if variants else "—"
             tag      = "odd" if i % 2 == 1 else "even"
             self._results_tree.insert("", "end", iid=str(i - 1),

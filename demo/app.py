@@ -15,6 +15,7 @@ import gradio as gr
 
 from pipeline.pipeline import run_tecla_pipeline
 from tecla.extractor.tbx_export import export_tbx
+from tecla.extractor.hybrid_extractor import display_variants
 
 AQUI = Path(__file__).resolve().parent
 EJEMPLOS = AQUI / "ejemplos"
@@ -92,7 +93,7 @@ def extraer(archivos, ejemplo, lengua, monolexicos, perfil):
         filas_doc.append([d["doc_id"], n, len(d.get("sentences", [])), len(tipos),
                           round(len(tipos) / n, 4) if n else 0])
 
-    filas = [[i, t["lemma"], " · ".join(t.get("variants", [])) or "—",
+    filas = [[i, t["lemma"], " · ".join(display_variants(t)) or "—",
               round(t["terminologicity"], 4), round(t.get("tf_idf", 0), 2),
               round(t.get("c_value", 0), 2), round(t.get("nc_value", 0), 2),
               t["frequency"], round(t.get("freq_rel", 0), 2), t["doc_frequency"]]

@@ -30,6 +30,23 @@ TermLength = Union[int, Tuple[int, Optional[int]]]
 
 SUPPORTED_LANGUAGES = {"en", "es"}
 
+def display_variants(term: Dict[str, Any]) -> List[str]:
+    """
+    Surface forms to show next to a candidate that is displayed by its lemma.
+
+    A candidate is listed by its lemma, while ``term`` holds its most frequent
+    surface form and ``variants`` the remaining ones. The forms worth showing
+    are therefore all the surface forms except the one already displayed: the
+    lemma itself is dropped, so that a candidate is never its own variant.
+    """
+    shown = term.get("lemma") or term.get("term", "")
+    forms: List[str] = []
+    for form in [term.get("term", "")] + list(term.get("variants", [])):
+        if form and form != shown and form not in forms:
+            forms.append(form)
+    return forms
+
+
 class HybridTermExtractor:
     """
     Hybrid terminology extractor based on:
