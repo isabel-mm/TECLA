@@ -339,38 +339,6 @@ Entrada esperada:
 - `sentence_count`
 - `avg_sentence_length`
 
-## Log de depuración
-
-Cada vez que se ejecuta el pipeline, TECLA escribe automáticamente un archivo `tecla_debug.txt` en el **directorio de trabajo actual**. Si el archivo ya existe, las nuevas sesiones se añaden al final sin borrar las anteriores.
-
-El log registra el tiempo que tarda cada etapa pesada del proceso:
-
-```
-2026-04-29 14:05:01  INFO      ════════════════════════════════════════
-2026-04-29 14:05:01  INFO      NUEVA SESIÓN TECLA  corpus: /mis/pdfs
-2026-04-29 14:05:01  INFO      ════════════════════════════════════════
-2026-04-29 14:05:01  INFO      [INICIO] Conversión PDF→TXT (5 archivos)
-2026-04-29 14:05:07  INFO      [FIN]    Conversión PDF→TXT (5 archivos) — 6.03 s
-2026-04-29 14:05:07  INFO      Lengua detectada: es
-2026-04-29 14:05:07  INFO      [INICIO] Procesamiento spaCy — modelo 'es_core_news_md'
-2026-04-29 14:05:51  INFO      [FIN]    Procesamiento spaCy — modelo 'es_core_news_md' — 44.21 s
-2026-04-29 14:05:51  INFO      Corpus: 12 docs, 187,430 tokens
-2026-04-29 14:05:51  INFO      [INICIO] Extracción de candidatos (percentil=80)
-2026-04-29 14:05:53  INFO      [FIN]    Extracción de candidatos (percentil=80) — 1.87 s
-2026-04-29 14:05:53  INFO      Extracción completada: 312 candidatos
-```
-
-Las etapas temporizadas son:
-
-| Etapa | Descripción |
-|---|---|
-| Conversión PDF→TXT | Extracción de texto desde PDF con pdfminer |
-| Limpieza TXT | Aplicación de filtros de limpieza sobre texto plano |
-| Detección de la lengua | Identificación automática de la lengua del corpus |
-| Procesamiento spaCy | Anotación lingüística completa (suele ser la etapa más lenta) |
-| Extracción de candidatos | Filtrado POS, puntuación estadística y consolidación |
-
-El archivo no se elimina automáticamente. Si quieres empezar desde cero, bórralo manualmente.
 
 ## GUI
 
