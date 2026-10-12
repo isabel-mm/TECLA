@@ -53,6 +53,8 @@ _SB_BORDER     = "#ddd6fe"   # bordes sidebar (lavanda)
 _STEP_PENDING  = "#c4b5fd"   # contorno de los pasos aún no recorridos
 
 _SESSION_FILE  = Path.home() / ".tecla_session.json"
+# Recursos gráficos (en el ejecutable empaquetado se sirven desde sys._MEIPASS)
+_ASSETS        = Path(getattr(sys, "_MEIPASS", _PROJECT_ROOT)) / "gui" / "assets"
 
 _WEIGHT_PRESETS = {
     "Frecuencia":  {"tfidf": 0.6, "ncvalue": 0.4},
@@ -305,6 +307,11 @@ class TeclaApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("TECLA")
+        try:
+            self._icon = tk.PhotoImage(file=str(_ASSETS / "logo.png"))
+            self.iconphoto(True, self._icon)
+        except Exception:
+            pass   # sin icono, la ventana usa el del sistema
         self.geometry("1420x800")
         self.minsize(1100, 640)
         self.configure(fg_color=_BG_ROOT)
@@ -414,9 +421,14 @@ class TeclaApp(ctk.CTk):
 
         name_row = ctk.CTkFrame(header, fg_color="transparent")
         name_row.pack(fill="x", padx=18, pady=(22, 0))
-        ctk.CTkLabel(name_row, text="T", width=40, height=40, corner_radius=10,
-                     fg_color=_ACCENT, text_color="#ffffff",
-                     font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
+        try:
+            from PIL import Image
+            logo = ctk.CTkImage(Image.open(_ASSETS / "logo.png"), size=(44, 44))
+            ctk.CTkLabel(name_row, text="", image=logo, width=44, height=44).pack(side="left")
+        except Exception:
+            ctk.CTkLabel(name_row, text="T", width=40, height=40, corner_radius=10,
+                         fg_color=_ACCENT, text_color="#ffffff",
+                         font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
         name_txt = ctk.CTkFrame(name_row, fg_color="transparent")
         name_txt.pack(side="left", padx=(12, 0))
         ctk.CTkLabel(name_txt, text="TECLA", height=22,

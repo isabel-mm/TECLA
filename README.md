@@ -1,6 +1,8 @@
+<p align="center"><img src="gui/assets/logo.png" alt="Logo de TECLA" width="120"></p>
+
 # TECLA
 
-**Term Extraction and Corpus Linguistics Application**
+**Term Extraction and Corpus Linguistics Application** · [Página de presentación](https://isabel-mm.github.io/TECLA/) · [Demostración en Google Colab](https://colab.research.google.com/github/isabel-mm/TECLA/blob/main/TECLA_colab_demo.ipynb)
 
 TECLA es una herramienta en Python para construir corpus especializados, limpiarlos, extraer candidatos terminológicos y evaluar tanto la extracción como la calidad del corpus. El proyecto ofrece dos formas principales de uso:
 
