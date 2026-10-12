@@ -24,10 +24,9 @@ from typing import List, Dict, Any
 import yaml
 
 
-# POS tags excluded from context word collection (non-content words)
-_CONTEXT_BLOCKED_POS: frozenset = frozenset({
-    "PUNCT", "SPACE", "DET", "ADP", "CCONJ", "SCONJ", "AUX", "PART",
-})
+# POS tags of context words for NC-value: nouns, adjectives and verbs
+# (Frantzi et al. 2000).
+_CONTEXT_POS: frozenset = frozenset({"NOUN", "ADJ", "VERB"})
 
 # Universal Dependencies POS tag set
 _UD_POS_TAGS = {
@@ -197,18 +196,17 @@ def extract_candidates(
                     term_text = " ".join(tok["text"] for tok in span_tokens)
                     term_lemma = " ".join(tok["lemma"] for tok in span_tokens)
 
-                    # Context words (±2 tokens) for NC-value computation.
-                    # Only content tokens are collected; punctuation, determiners,
-                    # adpositions, and auxiliaries are excluded.
+                    # Context words (±2 tokens) for NC-value computation:
+                    # nouns, adjectives and verbs, as lowercased lemmas.
                     context_words: List[str] = []
                     for pos in range(max(0, start - 2), start):
                         tok = sentence_tokens[pos]
-                        if tok.get("pos", "") not in _CONTEXT_BLOCKED_POS:
-                            context_words.append(tok["lemma"])
+                        if tok.get("pos", "") in _CONTEXT_POS:
+                            context_words.append(tok["lemma"].lower())
                     for pos in range(end, min(len(sentence_tokens), end + 2)):
                         tok = sentence_tokens[pos]
-                        if tok.get("pos", "") not in _CONTEXT_BLOCKED_POS:
-                            context_words.append(tok["lemma"])
+                        if tok.get("pos", "") in _CONTEXT_POS:
+                            context_words.append(tok["lemma"].lower())
 
                     candidates.append({
                         "term": term_text,
