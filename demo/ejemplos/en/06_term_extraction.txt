@@ -1,0 +1,7 @@
+Automatic term extraction identifies the terms of a domain in a specialised corpus. A term is a lexical unit that designates a concept of a specialised domain, and a term candidate is a unit that the system proposes and that a specialist must validate. Most systems combine a linguistic filter and a statistical filter.
+
+The linguistic filter selects the sequences of tokens that match a part-of-speech pattern, because most terms are noun phrases. A single-word term is formed by one token, and a multiword term is formed by two or more tokens. Part-of-speech tagging and lemmatisation are therefore required before the linguistic filter can be applied.
+
+The statistical filter ranks the term candidates. Unithood is the degree to which a sequence of tokens forms a stable unit, and termhood is the degree to which a unit is related to the concepts of a domain. An association measure estimates unithood. Termhood can be estimated by comparing the specialised corpus with a reference corpus, or with measures that only need the specialised corpus. The C-value measure rewards long term candidates and penalises a term candidate that mostly occurs nested inside a longer term candidate. A nested term is a term that appears inside another term.
+
+The result is a ranked list of term candidates. Its quality is evaluated against a gold standard, a list of terms validated by specialists, with precision and recall. Term variation complicates the evaluation, because the same concept can be designated by a full form, an abbreviation or a spelling variant.

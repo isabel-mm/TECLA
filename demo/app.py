@@ -137,8 +137,8 @@ with gr.Blocks(theme=tema, title="TECLA · demostración") as demo:
             ejemplo = gr.Radio(
                 ["Textos de ejemplo (inglés)", "Textos de ejemplo (español)", "Mis textos"],
                 value="Textos de ejemplo (inglés)", label="Corpus",
-                info="Los textos de ejemplo son tres textos breves sobre lingüística de corpus, "
-                     "redactados para esta demostración.")
+                info="Los textos de ejemplo son seis textos de prueba sobre lingüística de corpus, "
+                     "ficticios y generados con inteligencia artificial (Claude).")
             archivos = gr.File(label="Mis textos (TXT o PDF)", file_count="multiple",
                                file_types=[".txt", ".pdf"], visible=False)
             lengua = gr.Radio(list(LENGUAS), value="Detección automática", label="Lengua")

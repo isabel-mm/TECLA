@@ -1,0 +1,7 @@
+Una concordancia muestra todas las apariciones de una palabra de búsqueda junto con su contexto. Cada aparición se presenta como una línea de concordancia, y el formato habitual es el de palabra clave en contexto, en el que la palabra nodo se alinea en el centro de la línea de concordancia. Un programa de concordancias es la herramienta que genera una concordancia. Ordenar las líneas de concordancia por las palabras situadas a la izquierda o a la derecha de la palabra nodo permite descubrir patrones recurrentes.
+
+La colocación es la tendencia de dos palabras a aparecer juntas con más frecuencia de la esperable por azar. La palabra nodo es la palabra que se estudia, y un colocado es una palabra que aparece dentro de la ventana de colocación, que suele abarcar cuatro o cinco tokens a cada lado de la palabra nodo. Una medida de asociación cuantifica la fuerza de una colocación. La información mutua favorece los colocados poco frecuentes, mientras que la razón de verosimilitud favorece los colocados frecuentes, de modo que la elección de la medida de asociación cambia la lista de colocados.
+
+La coligación es la coaparición de una palabra con una categoría gramatical, y la prosodia semántica es la tendencia de una palabra a aparecer con colocados que comparten un significado positivo o negativo. Un paquete léxico es una secuencia recurrente de tres o más formas que resulta frecuente en muchos textos.
+
+Las líneas de concordancia y los colocados son complementarios: la medida de asociación identifica los candidatos, y la concordancia muestra cómo se usan.
