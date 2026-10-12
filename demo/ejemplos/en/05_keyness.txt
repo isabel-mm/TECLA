@@ -1,0 +1,7 @@
+Keyness is the property of a word that is unusually frequent in a corpus when the corpus is compared with a reference corpus. A keyword is a word with high keyness, and keyword analysis is the procedure that identifies the keywords of a corpus. The corpus under study is called the study corpus or the target corpus, and the reference corpus is usually a large general corpus.
+
+Keyword analysis compares the normalised frequency of each word in the target corpus with its normalised frequency in the reference corpus. A keyness measure quantifies the difference. The log-likelihood ratio is a significance test, and it indicates how confident we can be that the difference is not due to chance. An effect size measure, such as the log ratio, indicates how large the difference is. A keyword list ranked by the log-likelihood ratio favours frequent words, while a keyword list ranked by an effect size measure favours words that are rare in the reference corpus.
+
+The choice of reference corpus changes the keyword list. When a specialised corpus is compared with a general corpus, the keywords are mostly the terms of the domain. When a specialised corpus is compared with another specialised corpus, the keywords reveal the differences between two domains.
+
+A positive keyword is more frequent in the target corpus than in the reference corpus, and a negative keyword is less frequent. Keyness should be combined with a dispersion measure, because a keyword that occurs in a single text describes that text and not the target corpus as a whole.

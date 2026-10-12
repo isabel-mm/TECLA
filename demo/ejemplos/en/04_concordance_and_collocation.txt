@@ -1,0 +1,7 @@
+A concordance displays every occurrence of a search word together with its context. Each occurrence is shown as a concordance line, and the usual layout is the keyword in context format, in which the node word is aligned in the centre of the concordance line. A concordancer is the software tool that produces a concordance. Sorting the concordance lines by the words to the left or to the right of the node word reveals recurrent patterns.
+
+Collocation is the tendency of two words to occur together more often than expected by chance. The node word is the word under study, and a collocate is a word that occurs within the collocation window, which usually spans four or five tokens on each side of the node word. An association measure quantifies the strength of a collocation. Mutual information favours rare collocates, whereas the log-likelihood ratio and the t-score favour frequent collocates, so the choice of association measure changes the list of collocates.
+
+Colligation is the co-occurrence of a word with a grammatical category, and semantic prosody is the tendency of a word to occur with collocates that share a positive or a negative meaning. A lexical bundle is a recurrent sequence of three or more word forms, such as an n-gram that is frequent across many texts.
+
+A word sketch summarises the collocates of a word according to the grammatical relations in which they occur. Concordance lines, collocates and word sketches are complementary: the association measure identifies candidates, and the concordance shows how they are used.

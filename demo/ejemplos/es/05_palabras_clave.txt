@@ -1,0 +1,7 @@
+Una palabra clave es una palabra inusualmente frecuente en un corpus cuando ese corpus se compara con un corpus de referencia. El análisis de palabras clave es el procedimiento que identifica las palabras clave de un corpus. El corpus que se estudia se denomina corpus de estudio, y el corpus de referencia suele ser un corpus general de gran tamaño.
+
+El análisis de palabras clave compara la frecuencia normalizada de cada palabra en el corpus de estudio con su frecuencia normalizada en el corpus de referencia. Una medida de asociación estadística cuantifica la diferencia. La razón de verosimilitud es una prueba de significación, e indica con cuánta seguridad puede afirmarse que la diferencia no se debe al azar. Una medida del tamaño del efecto indica cuán grande es la diferencia. Una lista de palabras clave ordenada por la razón de verosimilitud favorece las palabras frecuentes, mientras que una lista de palabras clave ordenada por el tamaño del efecto favorece las palabras que son raras en el corpus de referencia.
+
+La elección del corpus de referencia cambia la lista de palabras clave. Cuando un corpus especializado se compara con un corpus general, las palabras clave son en su mayoría los términos del dominio. Cuando un corpus especializado se compara con otro corpus especializado, las palabras clave revelan las diferencias entre dos dominios.
+
+El análisis de palabras clave debe combinarse con una medida de dispersión, porque una palabra clave que aparece en un solo texto describe ese texto y no el corpus de estudio en su conjunto.
