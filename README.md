@@ -59,6 +59,27 @@ python -m spacy download es_core_news_md
 python -m spacy download en_core_web_lg
 ```
 
+### Crear el ejecutable de Windows
+
+La compilación debe hacerse en Windows. En una consola dentro del repositorio,
+instala TECLA y PyInstaller y ejecuta el script incluido:
+
+```bat
+python -m pip install -e . pyinstaller
+packaging\windows\build_windows.bat
+```
+
+El archivo se genera en `dist\TECLA.exe`. Si instalas `es_core_news_md` o
+`en_core_web_lg` antes de compilar, PyInstaller los incluirá; esto aumenta
+considerablemente el tamaño. La compilación automática de GitHub no incluye esos
+modelos: TECLA intentará descargarlos al usarlos y, si no puede, recurrirá al
+fallback de spaCy.
+
+Al crear y subir una etiqueta `v*` (por ejemplo, `v2.1.0`), GitHub Actions
+compilará el `.exe` en Windows y lo adjuntará a una release para descargar.
+También se puede ejecutar el workflow manualmente desde la pestaña **Actions**;
+en ese caso, el `.exe` estará disponible como artefacto de compilación.
+
 Si un modelo no está disponible, TECLA intenta descargarlo y, si falla, cae a un `spacy.blank(...)`. Ese fallback permite ejecutar el pipeline, pero reduce la calidad del análisis lingüístico y de la extracción.
 
 ## Estructura de trabajo
