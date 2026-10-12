@@ -3,9 +3,9 @@ tecla/debug.py
 ──────────────
 Logger de depuración con tiempos de ejecución.
 
-Escribe en ``tecla_debug.txt`` dentro del directorio de trabajo actual
-cada vez que se ejecuta el pipeline. Las sesiones se acumulan en el
-mismo archivo (no se sobreescribe).
+Escribe en ``tecla_debug.txt`` dentro de la carpeta de resultados del
+corpus (``_tecla_output/``) cada vez que se ejecuta el pipeline. Las
+sesiones se acumulan en el mismo archivo (no se sobreescribe).
 
 Uso desde el pipeline (interno):
 
@@ -39,35 +39,56 @@ from contextlib import contextmanager
 from pathlib import Path
 
 _logger: logging.Logger | None = None
+_log_path: Path | None = None
+
+LOG_NAME = "tecla_debug.txt"
 
 
-def _get_logger() -> logging.Logger:
-    global _logger
-    if _logger is not None:
+def _log_file(corpus_path: str = "") -> Path:
+    """
+    Dónde se guarda el registro: en la carpeta de resultados del corpus
+    (``<carpeta de trabajo>/_tecla_output/``), junto a los gráficos. Si no se
+    conoce el corpus o no se puede escribir ahí, en el directorio actual.
+    """
+    if corpus_path:
+        try:
+            out = Path(corpus_path).resolve().parent / "_tecla_output"
+            out.mkdir(parents=True, exist_ok=True)
+            return out / LOG_NAME
+        except OSError:
+            pass
+    return Path.cwd() / LOG_NAME
+
+
+def _get_logger(corpus_path: str = "") -> logging.Logger:
+    global _logger, _log_path
+
+    wanted = _log_file(corpus_path) if (corpus_path or _log_path is None) else _log_path
+    if _logger is not None and wanted == _log_path:
         return _logger
-
-    log_path = Path.cwd() / "tecla_debug.txt"
 
     logger = logging.getLogger("tecla.debug")
     logger.setLevel(logging.DEBUG)
+    for handler in list(logger.handlers):      # nueva sesión con otro corpus
+        logger.removeHandler(handler)
+        handler.close()
 
-    if not logger.handlers:
-        fh = logging.FileHandler(log_path, mode="a", encoding="utf-8")
-        fh.setLevel(logging.DEBUG)
-        fh.setFormatter(logging.Formatter(
-            "%(asctime)s  %(levelname)-8s  %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        ))
-        logger.addHandler(fh)
+    fh = logging.FileHandler(wanted, mode="a", encoding="utf-8")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(logging.Formatter(
+        "%(asctime)s  %(levelname)-8s  %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
+    logger.addHandler(fh)
 
     logger.propagate = False
-    _logger = logger
+    _logger, _log_path = logger, wanted
     return logger
 
 
 def start_session(corpus_path: str = "") -> None:
     """Escribe una cabecera de sesión en el archivo de debug."""
-    logger = _get_logger()
+    logger = _get_logger(corpus_path)
     sep = "═" * 56
     logger.info(sep)
     logger.info(f"NUEVA SESIÓN TECLA  corpus: {corpus_path or '(no especificado)'}")
