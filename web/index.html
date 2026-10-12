@@ -3,8 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="img/favicon.png">
 <title>TECLA · Term Extraction and Corpus Linguistics Application</title>
 <meta name="description" content="TECLA es una herramienta de código abierto para preparar un corpus especializado, extraer sus candidatos a término, comprobar si el corpus es suficiente y revisar el resultado.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
 :root{
   --violeta:#7c3aed; --violeta-osc:#6d28d9; --lavanda:#f5f3ff; --lavanda-borde:#ddd6fe;
@@ -124,78 +126,190 @@ nav a.activo{color:var(--violeta-osc)}
   *,*::before,*::after{animation:none!important;transition:none!important}
   .js .aparece,.js .portada .entra,.js .paso .num{opacity:1!important;transform:none!important}
 }
+
+.estrecho{max-width:780px}
+.bento{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.caja{background:var(--fondo);border:1px solid var(--borde);border-radius:14px;padding:22px;transition:transform .25s ease,box-shadow .25s ease}
+.caja:hover{transform:translateY(-4px);box-shadow:0 14px 32px rgba(30,27,75,.10)}
+.caja .cifra{display:block;font-size:40px;font-weight:800;line-height:1;color:var(--violeta);margin-bottom:6px}
+.caja h3{margin:0 0 6px;font-size:18px}.caja p{margin:0;color:#3f3d63;font-size:16px}
+details{border-bottom:1px solid var(--borde);padding:16px 0}
+summary{cursor:pointer;font-weight:650;font-size:18px;list-style:none;display:flex;justify-content:space-between;gap:16px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--violeta);font-size:24px;line-height:1;transition:transform .25s ease}
+details[open] summary::after{transform:rotate(45deg)}
+details p{margin:10px 0 0;color:#3f3d63}
+@media (max-width:780px){.bento{grid-template-columns:1fr}}
+.selector{position:fixed;right:14px;bottom:14px;z-index:20;background:#1e1b4b;color:#fff;border-radius:12px;padding:8px 10px;font:13px -apple-system,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.3)}
+.selector a{color:#fff;text-decoration:none;display:inline-block;padding:4px 10px;border-radius:7px;margin-left:2px}
+.selector a.on{background:#fff;color:#1e1b4b;font-weight:700}
+
+body{font-family:"Plus Jakarta Sans",-apple-system,sans-serif;background:
+  radial-gradient(#ddd6fe 1px,transparent 1.2px) 0 0/22px 22px,linear-gradient(180deg,#f5f3ff 0%,#fbfaff 40%,#f0fdfa 100%);background-attachment:fixed}
+.portada{background:transparent;border-bottom:0;text-align:center}
+.portada p.lema{margin-left:auto;margin-right:auto}.botones{justify-content:center}
+.portada h1{font-size:clamp(46px,9vw,96px);font-weight:800;letter-spacing:.01em}
+.portada img{border-radius:22px;border:6px solid #fff;box-shadow:0 30px 80px rgba(124,58,237,.25);margin-bottom:-40px}
+section{padding:84px 0}
+.franja{background:transparent;border:0}
+.boton{border-radius:999px;padding:13px 24px}
+.paso{background:#fff;border:1px solid var(--lavanda-borde);border-radius:26px;padding:28px;box-shadow:0 10px 30px rgba(124,58,237,.07)}
+.paso img{border-radius:16px}
+.tarjeta,.caja,.enlaces a{background:#fff;border-color:var(--lavanda-borde);border-radius:22px}
+.bento{grid-template-columns:repeat(4,1fr)}.caja.grande{grid-column:span 2;grid-row:span 2;background:var(--violeta);border-color:var(--violeta)}
+.bento .caja:last-child{grid-column:1/-1;display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}.bento .caja:last-child .cifra,.bento .caja:last-child h3{margin:0}
+.caja.grande .cifra{color:#fff;font-size:96px}.caja.grande h3{color:#fff;font-size:26px}.caja.grande p{color:#ede9fe;font-size:18px}
+pre{border-radius:22px}.logo{border-radius:50%}
+details{background:#fff;border:1px solid var(--lavanda-borde);border-radius:18px;padding:16px 20px;margin-bottom:10px}
+@media (max-width:780px){.bento{grid-template-columns:1fr}.caja.grande{grid-column:auto;grid-row:auto}}
+.guiado{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,7fr);gap:40px;align-items:start}
+.guiado .lista .etapa{min-height:72vh;display:flex;flex-direction:column;justify-content:center;opacity:.35;transition:opacity .4s ease}
+.guiado .lista .etapa.activa{opacity:1}
+.guiado .etapa .num{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--violeta);color:#fff;font-weight:800;margin-bottom:10px}
+.guiado .etapa h3{margin:0 0 8px;font-size:26px}.guiado .etapa p{margin:0;color:#3f3d63}
+.guiado .fijo{position:sticky;top:90px;height:calc(100vh - 130px);display:flex;align-items:center}
+.guiado .marco{position:relative;width:100%;aspect-ratio:1600/943;border-radius:12px;overflow:hidden;border:1px solid var(--borde);box-shadow:0 24px 60px rgba(76,29,149,.22)}
+.guiado .marco img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.03);transition:opacity .6s ease,transform .8s ease}
+.guiado .marco img.activa{opacity:1;transform:none}
+@media (max-width:780px){.guiado{grid-template-columns:1fr}.guiado .fijo{position:sticky;top:60px;height:auto;z-index:2;background:var(--fondo);padding:8px 0}.guiado .lista .etapa{min-height:50vh}}
+
+/* — mezcla: pasos de la 3, «Qué incluye» y preguntas de la 2 — */
+.guiado .marco{border-radius:22px;border:6px solid #fff;box-shadow:0 30px 80px rgba(124,58,237,.22)}
+.guiado .etapa h3{font-weight:800}
+.bento{grid-template-columns:repeat(3,1fr)}
+.caja.grande{grid-column:auto;grid-row:auto;background:#fff;border-color:var(--lavanda-borde)}
+.caja.grande .cifra{color:var(--violeta);font-size:40px}.caja.grande h3{color:var(--tinta);font-size:18px}.caja.grande p{color:#3f3d63;font-size:16px}
+.bento .caja:last-child{grid-column:auto;display:block}.bento .caja:last-child .cifra{margin-bottom:6px}.bento .caja:last-child h3{margin:0 0 6px}
+details{background:transparent;border:0;border-bottom:1px solid var(--lavanda-borde);border-radius:0;padding:16px 0;margin-bottom:0}
+@media (max-width:780px){.bento{grid-template-columns:1fr}}
+
+/* ══ variantes combinables ══ */
+.hv,.qv{display:none}
+body[data-h="1"] .hv1,body[data-h="2"] .hv2,body[data-h="3"] .hv3,body[data-h="4"] .hv4{display:block}
+body[data-q="0"] .qv0,body[data-q="1"] .qv1,body[data-q="2"] .qv2,body[data-q="3"] .qv3,body[data-q="4"] .qv4{display:block}
+
+/* pantalla sin reborde blanco, con sombra */
+.portada img,.portada .pantalla img{border:0!important;margin-bottom:0!important;border-radius:14px}
+.pantalla{margin-bottom:-36px;position:relative}
+.pantalla img{display:block;width:100%;box-shadow:0 2px 6px rgba(30,27,75,.10),0 30px 70px -10px rgba(76,29,149,.38),0 60px 120px -30px rgba(76,29,149,.30)}
+.guiado .marco{border:0!important;border-radius:14px;box-shadow:0 2px 6px rgba(30,27,75,.10),0 30px 70px -14px rgba(76,29,149,.34)}
+.portada{padding-bottom:36px;overflow:visible}
+
+/* título y cursores */
+.portada h1{background:none!important;color:var(--tinta);-webkit-text-fill-color:currentColor}
+.grad{background:linear-gradient(100deg,var(--tinta) 30%,var(--violeta) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.cursor{display:inline-block;width:.07em;height:.82em;margin-left:.08em;vertical-align:-.04em;background:var(--violeta);border-radius:.02em;animation:parpadeo 1.05s steps(1) infinite}
+.cursor.bloque{width:.46em;opacity:.9;border-radius:.05em}
+.cursor.guion{width:.5em;height:.09em;vertical-align:0;margin-left:.12em}
+@keyframes parpadeo{50%{opacity:0}}
+
+/* 2 · máquina de escribir, pantalla inclinada */
+.hv2 .pantalla{perspective:1600px}
+.hv2 .pantalla img{transform:rotateX(14deg) scale(.96);transform-origin:50% 0;transition:transform .8s cubic-bezier(.2,.7,.2,1)}
+.hv2 .pantalla:hover img{transform:none}
+/* 3 · a dos columnas */
+.hv3{text-align:left}
+body[data-h="3"] .hv3{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:44px;align-items:center}
+.hv3 .lema{margin-left:0}.hv3 .botones{justify-content:flex-start}
+.hv3 .pantalla{margin:0 -140px 0 0}.hv3 h1{font-size:clamp(46px,7vw,84px)}
+/* 4 · teclas */
+.teclado{display:inline-flex;gap:.1em;vertical-align:middle}
+.tecla{display:inline-grid;place-items:center;width:1.18em;height:1.18em;font-size:.78em;border-radius:.2em;background:#fff;color:var(--tinta);border:1px solid var(--lavanda-borde);box-shadow:0 .11em 0 #c4b5fd,0 .2em .4em rgba(76,29,149,.22);animation:pulsar 4.5s ease-in-out infinite}
+@keyframes pulsar{0%,7%,100%{transform:none;box-shadow:0 .11em 0 #c4b5fd,0 .2em .4em rgba(76,29,149,.22)}3.5%{transform:translateY(.09em);box-shadow:0 .02em 0 #c4b5fd,0 .05em .1em rgba(76,29,149,.2);background:var(--lavanda)}}
+@media (max-width:860px){body[data-h="3"] .hv3{grid-template-columns:1fr}.hv3 .pantalla{margin:0}}
+
+/* «Qué hace» */
+.frase{font-size:clamp(20px,2.5vw,27px);line-height:1.55;max-width:900px;margin:0;color:var(--tinta)}
+.frase mark{background:linear-gradient(transparent 58%,#ddd6fe 58%);color:inherit;padding:0 .08em;font-weight:650}
+.via{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,1fr);gap:0;counter-reset:via;position:relative}
+.via::before{content:"";position:absolute;left:10%;right:10%;top:19px;height:2px;background:linear-gradient(90deg,var(--violeta),var(--teal))}
+.via li{counter-increment:via;text-align:center;padding:0 10px;position:relative}
+.via li::before{content:counter(via);display:grid;place-items:center;width:40px;height:40px;margin:0 auto 12px;border-radius:50%;background:#fff;border:2px solid var(--violeta);color:var(--violeta);font-weight:800;position:relative}
+.via li:last-child::before{background:var(--teal);border-color:var(--teal);color:#fff;content:"✓"}
+.via b{display:block;font-size:17px}.via span{display:block;color:#3f3d63;font-size:15px;line-height:1.45;margin-top:2px}
+.lista-si{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,1fr);gap:14px 40px;max-width:920px}
+.lista-si li{position:relative;padding-left:34px;font-size:17px}
+.lista-si li::before{content:"✓";position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:var(--lavanda);color:var(--violeta);display:grid;place-items:center;font-size:13px;font-weight:800;border:1px solid var(--lavanda-borde)}
+.entra-sale{display:grid;grid-template-columns:1fr auto 1.25fr;gap:22px;align-items:center}
+.entra-sale>div:not(.flecha){background:#fff;border:1px solid var(--lavanda-borde);border-radius:22px;padding:24px 26px}
+.entra-sale>div.sale{background:var(--violeta);border-color:var(--violeta);color:#fff}
+.entra-sale h3{margin:0 0 10px;font-size:20px}.entra-sale ul{margin:0;padding-left:20px}.entra-sale li{margin:6px 0}
+.entra-sale .flecha{font-size:34px;color:var(--violeta)}
+@media (max-width:780px){.via{grid-template-columns:1fr;gap:18px}.via::before{display:none}.lista-si{grid-template-columns:1fr}.entra-sale{grid-template-columns:1fr}.entra-sale .flecha{transform:rotate(90deg);justify-self:center}}
+
+.mando{position:fixed;right:14px;bottom:14px;z-index:30;background:#1e1b4b;color:#fff;border-radius:14px;padding:10px 12px;font:13px -apple-system,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.35);max-width:330px}
+.mando div{display:flex;align-items:center;gap:4px;margin:3px 0;flex-wrap:wrap}.mando span{width:84px;opacity:.75}
+.mando button{background:transparent;color:#fff;border:1px solid #ffffff40;border-radius:7px;padding:4px 9px;cursor:pointer;font:inherit}
+.mando button.on{background:#fff;color:#1e1b4b;font-weight:700}
+.mando small{display:block;opacity:.7;margin-top:4px;line-height:1.35}
+
+/* ══ segunda ronda ══ */
+.portada{text-align:left}.portada p.lema{margin-left:0;margin-right:0}.portada .botones{justify-content:flex-start}
+.portada .txt{max-width:780px}
+.pv{display:none}
+body[data-p="1"] .pv1,body[data-p="2"] .pv2,body[data-p="3"] .pv3,body[data-p="4"] .pv4,body[data-p="5"] .pv5{display:block}
+.pv .num{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--violeta);color:#fff;font-weight:800;font-size:15px;margin-bottom:10px;transform:none!important}
+.pv h3{margin:0 0 8px;font-size:22px}.pv p{margin:0;color:#3f3d63}
+.pv img{border:0}
+/* 2 · pestañas, como los pasos de la propia TECLA */
+.pestanas{display:flex;align-items:center;background:#fff;border:1px solid var(--lavanda-borde);border-radius:999px;padding:8px 14px;margin-bottom:26px;box-shadow:0 6px 20px rgba(124,58,237,.08)}
+.pestanas button{display:flex;align-items:center;gap:9px;background:none;border:0;cursor:pointer;font:inherit;font-size:16px;color:var(--gris);padding:6px 8px;border-radius:999px;white-space:nowrap}
+.pestanas em{font-style:normal;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;border:2px solid #c4b5fd;font-weight:800;font-size:14px;transition:all .3s ease}
+.pestanas button.on{color:var(--tinta);font-weight:800}.pestanas button.on em{background:var(--violeta);border-color:var(--violeta);color:#fff}
+.pestanas button.hecho em{background:var(--teal);border-color:var(--teal);color:#fff}
+.pestanas .ln{flex:1;height:2px;background:var(--borde);margin:0 6px;min-width:12px}
+.pest-cuerpo{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:36px;align-items:center}
+.pest-textos{position:relative;min-height:230px}
+.pt{position:absolute;inset:0;opacity:0;transform:translateY(12px);transition:opacity .45s ease,transform .45s ease;pointer-events:none}
+.pt.on{opacity:1;transform:none;pointer-events:auto}
+.marco{position:relative;width:100%;aspect-ratio:1600/943;border-radius:14px;overflow:hidden;box-shadow:0 2px 6px rgba(30,27,75,.10),0 30px 70px -14px rgba(76,29,149,.34)}
+.pv2 .marco img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.03);transition:opacity .6s ease,transform .8s ease}
+.pv2 .marco img.activa{opacity:1;transform:none}
+/* 3 · alternados */
+.pv3 .paso{background:none;border:0;box-shadow:none;padding:0;margin-bottom:64px}
+.pv3 .paso img{border-radius:14px;box-shadow:0 2px 6px rgba(30,27,75,.10),0 26px 60px -14px rgba(76,29,149,.30)}
+/* 4 · rejilla */
+.rej-pasos{display:grid;grid-template-columns:repeat(2,1fr);gap:22px}
+.rej-pasos article{background:#fff;border:1px solid var(--lavanda-borde);border-radius:22px;overflow:hidden;box-shadow:0 10px 30px rgba(124,58,237,.07);transition:transform .3s ease,box-shadow .3s ease}
+.rej-pasos article:hover{transform:translateY(-5px);box-shadow:0 22px 50px rgba(124,58,237,.16)}
+.rej-pasos img{display:block;width:100%;aspect-ratio:16/8.2;object-fit:cover;object-position:top left;border-bottom:1px solid var(--lavanda-borde)}
+.rej-pasos article>div{padding:20px 22px 24px}
+/* 5 · carrusel */
+.carrusel{display:flex;gap:22px;overflow-x:auto;scroll-snap-type:x mandatory;padding:10px 4px 26px;margin:0 -4px;scrollbar-width:thin}
+.diapo{flex:0 0 min(78%,820px);scroll-snap-align:center;background:#fff;border:1px solid var(--lavanda-borde);border-radius:22px;overflow:hidden;box-shadow:0 14px 36px rgba(124,58,237,.10)}
+.diapo img{display:block;width:100%}.diapo>div{padding:20px 24px 24px}
+.nota-carrusel{color:var(--gris)!important;font-size:15px;margin-top:4px!important}
+#origen p{margin:0 0 14px}
+@media (max-width:780px){.pest-cuerpo{grid-template-columns:1fr}.pest-textos{min-height:260px}.pestanas{border-radius:18px;flex-wrap:wrap}.pestanas .ln{display:none}.rej-pasos{grid-template-columns:1fr}}
+.marca img.logo{width:38px;height:38px;background:none;border-radius:0;display:block}
 </style>
 </head>
-<body>
+<body data-p="2">
 
 <header class="barra">
   <div class="ancho">
-    <a class="marca" href="#"><span class="logo">T</span>TECLA</a>
-    <nav>
-      <a href="#flujo">Cómo funciona</a>
-      <a href="#instalacion">Instalación</a>
-      <a href="#por-que">Por qué de escritorio</a>
-      <a href="#recursos">Recursos</a>
-    </nav>
+    <a class="marca" href="#"><img class="logo" src="img/logo-marca.png" alt="" width="38" height="38">TECLA</a>
+    <nav><a href="#inicio">Inicio</a><a href="#instalacion">Instalación</a><a href="#preguntas">Preguntas frecuentes</a></nav>
   </div>
 </header>
 
-<div class="portada">
+<div class="portada" id="inicio">
   <div class="ancho">
-    <p class="sub">Term Extraction and Corpus Linguistics Application</p>
-    <h1>TECLA</h1>
-    <p class="lema">Una herramienta de código abierto para trabajar con la terminología de un dominio a partir de sus textos, sin necesidad de programar.</p>
-    <div class="botones">
-      <a class="boton principal" href="https://colab.research.google.com/github/isabel-mm/TECLA/blob/main/TECLA_colab_demo.ipynb">Probar en Google Colab</a>
-      <a class="boton secundario" href="https://github.com/isabel-mm/TECLA">Código en GitHub</a>
+    <div class="txt">
+      <h1><span class="grad">TECLA</span><span class="cursor bloque"></span></h1>
+      <p class="lema">Una herramienta de código abierto para trabajar con la terminología de un dominio a partir de sus textos, sin necesidad de programar.</p>
+      <div class="botones">
+        <a class="boton principal" href="https://colab.research.google.com/github/isabel-mm/TECLA/blob/main/TECLA_colab_demo.ipynb">Probar en Google Colab</a>
+        <a class="boton secundario" href="https://github.com/isabel-mm/TECLA">Código fuente en GitHub</a>
+      </div>
     </div>
-    <img src="img/extraccion.png" alt="Pantalla de extracción de TECLA: cifras del corpus y tabla de candidatos a término ordenada por terminologicidad">
+    <div class="pantalla"><img src="img/extraccion.png" alt="Pantalla de extracción de TECLA"></div>
   </div>
 </div>
 
-<section id="flujo">
-  <div class="ancho">
-    <h2>El trabajo terminográfico, paso a paso</h2>
-    <p class="entrada">TECLA reúne en un mismo entorno las fases del trabajo terminográfico basado en corpus. Se recorren en orden, se puede volver atrás, y en cada momento quedan a la vista los parámetros y las cifras que intervienen en cada decisión.</p>
-
-    <div class="paso">
-      <div class="texto">
-        <span class="num">1</span>
-        <h3>Preparar el corpus</h3>
-        <p>Se elige la carpeta con los documentos, en PDF o en texto plano. TECLA los convierte a texto, los limpia y los analiza lingüísticamente, y muestra los datos descriptivos de cada documento y del corpus: <em>tokens</em>, tipos, TTR, hápax, densidad léxica y longitud de oración.</p>
-      </div>
-      <img src="img/corpus.png" alt="Pantalla Corpus: tabla de documentos con sus estadísticas y panel de metadatos" loading="lazy">
-    </div>
-
-    <div class="paso">
-      <div class="texto">
-        <span class="num">2</span>
-        <h3>Extraer los candidatos a término</h3>
-        <p>Primero, una etapa lingüística: se buscan las secuencias que siguen los patrones gramaticales habituales de los términos. Después, una estadística: <em>TF-IDF</em>, <em>C-value</em> y <em>NC-value</em> se combinan en un índice de terminologicidad que ordena la lista.</p>
-      </div>
-      <img src="img/extraccion.png" alt="Pantalla Extracción: tabla de candidatos con sus medidas" loading="lazy">
-    </div>
-
-    <div class="paso">
-      <div class="texto">
-        <span class="num">3</span>
-        <h3>Comprobar si el corpus es suficiente</h3>
-        <p>Antes de dar por bueno un inventario conviene preguntarse si el corpus recoge la terminología del dominio. TECLA aplica cuatro tests de adecuación terminológica: cobertura, saturación, dispersión y estabilidad.</p>
-      </div>
-      <img src="img/evaluacion.png" alt="Pantalla Evaluación: índice de representatividad y dispersión de los candidatos" loading="lazy">
-    </div>
-
-    <div class="paso">
-      <div class="texto">
-        <span class="num">4</span>
-        <h3>Revisar y exportar</h3>
-        <p>Ningún sistema automático sustituye el juicio del especialista. Cada candidato se aprueba, se rechaza o se deja pendiente, con notas y con todas sus cifras a la vista. El inventario revisado se exporta a CSV y a TBX-Basic (ISO 30042).</p>
-      </div>
-      <img src="img/revision.png" alt="Pantalla Revisión: lista de candidatos con su estado y panel de detalle" loading="lazy">
-    </div>
-  </div>
-</section>
-
+<section id="flujo"><div class="ancho"><h2>El trabajo terminográfico, paso a paso</h2>
+<p class="entrada">TECLA reúne en un mismo entorno las fases del trabajo terminográfico basado en corpus.</p>
+<div class="pv pv2"><div class="pestanas" role="tablist"><button role="tab" data-i="0" class="on"><em>1</em>Corpus</button><i class="ln"></i><button role="tab" data-i="1" class=""><em>2</em>Extracción</button><i class="ln"></i><button role="tab" data-i="2" class=""><em>3</em>Evaluación</button><i class="ln"></i><button role="tab" data-i="3" class=""><em>4</em>Revisión</button></div><div class="pest-cuerpo"><div class="pest-textos"><div class="pt on"><h3>Preparar el corpus</h3><p>Se elige la carpeta con los documentos, en PDF o en texto plano. TECLA los convierte a texto, los limpia y los analiza lingüísticamente, y muestra los datos descriptivos de cada documento y del corpus.</p></div><div class="pt "><h3>Extraer los candidatos a término</h3><p>Primero, una etapa lingüística: se buscan las secuencias que siguen los patrones gramaticales habituales de los términos. Después, una estadística: <em>TF-IDF</em>, <em>C-value</em> y <em>NC-value</em> se combinan en un índice de terminologicidad.</p></div><div class="pt "><h3>Comprobar si el corpus es suficiente</h3><p>Antes de dar por bueno un inventario conviene saber si el corpus recoge la terminología del dominio. TECLA aplica cuatro tests: cobertura, saturación, dispersión y estabilidad.</p></div><div class="pt "><h3>Revisar y exportar</h3><p>Ningún sistema automático sustituye el juicio del especialista. Cada candidato se aprueba, se rechaza o se deja pendiente, con notas y con todas sus cifras a la vista. El inventario revisado se exporta a CSV y a TBX-Basic.</p></div></div><div class="marco"><img src="img/corpus.png" alt="Preparar el corpus" class="activa"><img src="img/extraccion.png" alt="Extraer los candidatos a término" class=""><img src="img/evaluacion.png" alt="Comprobar si el corpus es suficiente" class=""><img src="img/revision.png" alt="Revisar y exportar" class=""></div></div></div></div></section>
 <section id="instalacion" class="franja">
   <div class="ancho">
     <h2>Instalación</h2>
@@ -214,34 +328,30 @@ python gui/tecla_gui.py</code></pre></div>
   </div>
 </section>
 
-<section id="por-que">
-  <div class="ancho">
-    <h2>Por qué una aplicación de escritorio</h2>
-    <p class="entrada">TECLA se instala y se ejecuta en el propio ordenador, y no como una aplicación web, por cuatro razones. El cuaderno de Google Colab es solo una muestra para probar la extracción.</p>
-    <div class="rejilla">
-      <div class="tarjeta"><h3>Tus textos no salen de tu ordenador</h3><p>Se trabaja a menudo con artículos y libros sujetos a derechos de autor, que no deben subirse a un servidor ajeno.</p></div>
-      <div class="tarjeta"><h3>Reproducible</h3><p>El código de cada versión queda publicado: cualquiera puede repetir un análisis con la misma herramienta.</p></div>
-      <div class="tarjeta"><h3>Independiente</h3><p>No hay un servidor que mantener ni un servicio del que depender.</p></div>
-      <div class="tarjeta"><h3>Adaptable</h3><p>La gramática de patrones es un fichero legible que puede modificarse o sustituirse por otra.</p></div>
-    </div>
+<section id="preguntas">
+  <div class="ancho estrecho">
+    <h2>Preguntas frecuentes</h2>
+    <p class="entrada">Lo que suele preguntarse antes de empezar.</p>
+    <details open><summary>¿Hace falta saber programar?</summary><p>No. La interfaz gráfica recorre todo el flujo con botones. Quien programe puede usar además la línea de comandos o importar los módulos desde Python.</p></details>
+    <details><summary>¿Se suben los textos a algún sitio?</summary><p>No. TECLA se ejecuta en el propio ordenador y los documentos no salen de él. Solo el cuaderno de demostración de Google Colab copia los textos a una sesión de Google.</p></details>
+    <details><summary>¿Con qué lenguas funciona?</summary><p>La gramática de patrones que acompaña a TECLA cubre el español y el inglés. Para otra lengua hay que aportar una gramática propia.</p></details>
+    <details><summary>¿Qué formatos de entrada admite?</summary><p>PDF y texto plano. Los PDF se convierten a texto y se limpian antes del análisis.</p></details>
+    <details><summary>¿Sustituye al terminógrafo?</summary><p>No. TECLA propone candidatos y deja a la vista las cifras con que los ordena; decidir cuáles son términos sigue siendo trabajo del especialista, y para eso está la pantalla de revisión.</p></details>
   </div>
 </section>
 
-<section id="recursos" class="franja">
-  <div class="ancho">
-    <h2>Recursos</h2>
-    <p class="entrada">TECLA se distribuye con licencia MIT.</p>
-    <ul class="enlaces">
-      <li><a href="https://github.com/isabel-mm/TECLA"><b>Código fuente</b><span>Repositorio en GitHub, con las pruebas automáticas</span></a></li>
-      <li><a href="https://colab.research.google.com/github/isabel-mm/TECLA/blob/main/TECLA_colab_demo.ipynb"><b>Demostración en Google Colab</b><span>La extracción, sobre unos pocos textos y sin instalar nada</span></a></li>
-      <li><a href="https://github.com/isabel-mm/TECLA#readme"><b>Documentación</b><span>Instalación, línea de comandos y uso desde Python</span></a></li>
-    </ul>
+<section id="origen">
+  <div class="ancho estrecho">
+    <h2>De dónde viene</h2>
+    <p>La idea de TECLA nace en 2021, con el inicio de una tesis doctoral de la Universidad de Cádiz sobre la extracción automática de términos. La tesis estudia la terminología de la lingüística de corpus en inglés y en español: compila un corpus de textos especializados de la disciplina, extrae de él sus términos y los describe.</p>
+    <p>Ese trabajo obliga a encadenar muchas operaciones distintas: convertir y limpiar los documentos, analizarlos lingüísticamente, buscar las secuencias con forma de término, ordenarlas con medidas estadísticas, comprobar si el corpus es suficiente y revisar el resultado a mano. TECLA las reúne en una sola herramienta, con una interfaz que no exige programar y que deja a la vista cada cifra y cada decisión.</p>
+    <p>La herramienta se publica para que el procedimiento pueda repetirse con otros textos, de otros dominios, y para que el inventario pueda actualizarse cuando el corpus crezca. Del mismo trabajo procede <a href="https://isabel-mm.github.io/GLiCor/">GLiCor</a>, un glosario bilingüe de lingüística de corpus.</p>
+    <p>Como buena herramienta terminológica, TECLA cuida su propia denominación: es una sigla, <em>Term Extraction and Corpus Linguistics Application</em>, y es una palabra: una tecla, como las que mueven cualquier aplicación.</p>
   </div>
 </section>
-
 <footer>
   <div class="ancho">
-    TECLA · Isabel Moyano-Moreno · Universidad de Cádiz · Licencia MIT
+    TECLA · Isabel Moyano-Moreno · Universidad de Cádiz · <a href="https://github.com/isabel-mm/TECLA">Código fuente</a> · <a href="https://isabel-mm.github.io/GLiCor/">GLiCor</a> · Licencia MIT
   </div>
 </footer>
 
@@ -258,7 +368,7 @@ python gui/tecla_gui.py</code></pre></div>
   });
 
   // Aparición al deslizar
-  q("section h2,section p.entrada,.paso .texto,.paso img,.tarjeta,.bloque-codigo,.nota,.enlaces li").forEach(function(el){
+  q("section h2,section p.entrada,.paso .texto,.paso img,.tarjeta,.bloque-codigo,.nota,.enlaces li,.caja,details,#origen p").forEach(function(el){
     el.classList.add("aparece");
   });
   q(".paso").forEach(function(paso,i){
@@ -305,6 +415,16 @@ python gui/tecla_gui.py</code></pre></div>
     });
     caja.appendChild(b);
   });
+})();
+</script>
+
+<script>
+(function(){
+  // Pasos: avanzan solos hasta que se pulsa uno
+  var bs=[].slice.call(document.querySelectorAll(".pestanas button")),ts=[].slice.call(document.querySelectorAll(".pv2 .pt")),im=[].slice.call(document.querySelectorAll(".pv2 .marco img")),act=0,reloj;
+  function ir(i){act=i;bs.forEach(function(b,j){b.classList.toggle("on",j===i);b.classList.toggle("hecho",j<i);b.setAttribute("aria-selected",j===i);});ts.forEach(function(t,j){t.classList.toggle("on",j===i)});im.forEach(function(x,j){x.classList.toggle("activa",j===i)});}
+  bs.forEach(function(b,i){b.addEventListener("click",function(){clearInterval(reloj);ir(i);});});
+  if(bs.length){ir(0); if(!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches)) reloj=setInterval(function(){ir((act+1)%bs.length);},4500);}
 })();
 </script>
 </body>
