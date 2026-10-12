@@ -98,18 +98,21 @@ def compute_cvalue(
     terms = list(term_stats.keys())
     cvalue = {}
 
-    terms_words = {t: t.split() for t in terms}
-    nested_in: Dict[str, list] = defaultdict(list)
+    terms_words = {t: tuple(t.split()) for t in terms}
 
-    for t1 in terms:
-        w1 = terms_words[t1]
-        for t2 in terms:
-            if t1 == t2:
-                continue
-            w2 = terms_words[t2]
-            # t1 can only be nested inside a *longer* term
-            if len(w1) < len(w2) and _is_nested(w1, w2):
-                nested_in[t1].append(t2)
+    # Index of candidates by their word sequence, so that the longer terms
+    # containing a candidate are found by enumerating the sub-sequences of
+    # each term instead of comparing every pair of candidates.
+    by_words: Dict[tuple, list] = defaultdict(list)
+    for t, words in terms_words.items():
+        by_words[words].append(t)
+
+    nested_in: Dict[str, set] = defaultdict(set)
+    for t2, w2 in terms_words.items():
+        for n in range(1, len(w2)):
+            for i in range(len(w2) - n + 1):
+                for t1 in by_words.get(w2[i:i + n], ()):
+                    nested_in[t1].add(t2)
 
     for term in terms:
         f = term_stats[term]["frequency"]
