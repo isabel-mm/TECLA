@@ -37,7 +37,7 @@ def _cmd_extract(args):
     extraction = {
         "multiword_only": args.multiword,
         "percentile": args.percentile,
-        "weights": {"tfidf": args.tfidf_weight, "cvalue": 1.0 - args.tfidf_weight},
+        "weights": {"tfidf": args.tfidf_weight, "ncvalue": 1.0 - args.tfidf_weight},
     }
 
     results = run_tecla_pipeline(
@@ -160,7 +160,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_extract.add_argument("--structure", action="store_true", default=False)
     p_extract.add_argument("--remove-bibliography", action="store_true", default=False)
     p_extract.add_argument("--lemmatize", action="store_true", default=False)
-    p_extract.add_argument("--tfidf-weight", type=float, default=0.8, dest="tfidf_weight")
+    p_extract.add_argument("--tfidf-weight", type=float, default=0.5, dest="tfidf_weight")
 
     # ---- stats ----
     p_stats = sub.add_parser("stats", help="Compute corpus statistics.")

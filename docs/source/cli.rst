@@ -28,7 +28,7 @@ Argumentos:
 - ``--structure``: activa limpieza estructural.
 - ``--remove-bibliography``: elimina la bibliografía del texto.
 - ``--lemmatize``: activa lematización durante la limpieza.
-- ``--tfidf-weight``: peso de TF-IDF en la combinación final. El peso de C-value se calcula como ``1.0 - tfidf_weight``.
+- ``--tfidf-weight``: peso de TF-IDF en la combinación final (por defecto, 0,5, el perfil equilibrado de la interfaz gráfica). El peso de NC-value se calcula como ``1.0 - tfidf_weight``.
 
 Observaciones:
 
