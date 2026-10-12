@@ -2,6 +2,7 @@ import csv
 import json
 import sys
 import threading
+from collections import Counter
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -714,21 +715,25 @@ class TeclaApp(ctk.CTk):
         self._corpus_tree = ttk.Treeview(
             corpus_wrap,
             style="TECLA.Treeview",
-            columns=("num", "doc", "tokens", "sents", "types", "ttr", "autor", "año", "tema"),
+            columns=("num", "doc", "tokens", "sents", "types", "ttr",
+                     "hapax", "dens", "slen", "autor", "año", "tema"),
             show="headings",
             selectmode="browse",
             height=8,
         )
         corpus_cols = [
             ("num",    "#",          42,  False, "e"),
-            ("doc",    "Documento", 200,  True,  "w"),
+            ("doc",    "Documento", 180,  True,  "w"),
             ("tokens", "Tokens",     80,  False, "e"),
             ("sents",  "Oraciones",  90,  False, "e"),
             ("types",  "Tipos",      80,  False, "e"),
             ("ttr",    "TTR",        70,  False, "e"),
-            ("autor",  "Autor",     120,  False, "w"),
+            ("hapax",  "Hápax",      66,  False, "e"),
+            ("dens",   "Dens. léx.", 82,  False, "e"),
+            ("slen",   "Long. or.",  78,  False, "e"),
+            ("autor",  "Autor",     130,  False, "w"),
             ("año",    "Año",        55,  False, "c"),
-            ("tema",   "Tema",      160,  True,  "w"),
+            ("tema",   "Tema",      100,  True,  "w"),
         ]
         for cid, heading, width, stretch, anchor in corpus_cols:
             self._corpus_tree.heading(cid, text=heading)
@@ -834,6 +839,9 @@ class TeclaApp(ctk.CTk):
                     _miles(d['sentences']),
                     _miles(d['types']),
                     f"{d['ttr']:.4f}",
+                    f"{d.get('hapax_ratio', 0):.3f}",
+                    f"{d.get('lexical_density', 0):.3f}",
+                    f"{d.get('avg_sentence_length', 0):.1f}",
                     meta.get("autor", ""),
                     meta.get("año", ""),
                     meta.get("tema", ""),
@@ -857,17 +865,20 @@ class TeclaApp(ctk.CTk):
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(["documento", "tokens", "oraciones", "tipos_unicos", "ttr",
+                             "hapax", "densidad_lexica", "longitud_media_oracion",
                              "autor", "año", "tema", "fuente", "notas"])
             for d in self._doc_stats:
                 meta = self._corpus_metadata.get(d["doc_id"], {})
                 writer.writerow([
                     d["doc_id"], d["tokens"], d["sentences"], d["types"], d["ttr"],
+                    d.get("hapax_ratio", ""), d.get("lexical_density", ""),
+                    d.get("avg_sentence_length", ""),
                     meta.get("autor", ""), meta.get("año", ""),
                     meta.get("tema", ""), meta.get("fuente", ""), meta.get("notas", ""),
                 ])
             writer.writerow([])
             writer.writerow(["TOTAL", total_tok, total_sent, total_types, corpus_ttr,
-                             "", "", "", "", ""])
+                             "", "", "", "", "", "", "", ""])
         messagebox.showinfo("Exportado", f"Tabla guardada en:\n{path}")
 
     # ═══════════════════════════════════════════
@@ -2187,6 +2198,27 @@ class TeclaApp(ctk.CTk):
         else:
             self._corpus_metadata = {}
 
+        # Los documentos sin metadatos guardados se completan con los que TECLA
+        # deduce del nombre del archivo (corpus/metadata.csv).
+        inferred = Path(path) / "corpus" / "metadata.csv"
+        if inferred.exists():
+            try:
+                with open(inferred, encoding="utf-8", newline="") as fh:
+                    for row in csv.DictReader(fh):
+                        doc_id = Path(row.get("file", "")).name
+                        if doc_id.lower().endswith(".txt") or doc_id.lower().endswith(".pdf"):
+                            doc_id = doc_id[:-4]
+                        if doc_id and doc_id not in self._corpus_metadata:
+                            self._corpus_metadata[doc_id] = {
+                                "autor":  (row.get("author") or "").strip(),
+                                "año":    (row.get("year") or "").strip(),
+                                "tema":   "",
+                                "fuente": (row.get("title") or row.get("source") or "").strip(),
+                                "notas":  "",
+                            }
+            except Exception:
+                pass
+
     def _save_corpus_metadata(self):
         path = self.corpus_path_var.get()
         if not path:
@@ -2239,9 +2271,9 @@ class TeclaApp(ctk.CTk):
         meta = self._corpus_metadata[doc_id]
         try:
             vals = list(self._corpus_tree.item(doc_id, "values"))
-            vals[6] = meta["autor"]
-            vals[7] = meta["año"]
-            vals[8] = meta["tema"]
+            vals[9]  = meta["autor"]
+            vals[10] = meta["año"]
+            vals[11] = meta["tema"]
             self._corpus_tree.item(doc_id, values=vals)
         except Exception:
             pass
@@ -2516,19 +2548,34 @@ class TeclaApp(ctk.CTk):
         self._documents       = documents
         self._doc_stats    = []
 
+        try:
+            from tecla.corpus.cleaning import get_language_stopwords
+            stopwords = get_language_stopwords(language)
+        except Exception:
+            stopwords = set()
+
         for doc in documents:
             doc_id   = doc["doc_id"]
             tokens   = doc["tokens"]
             sents    = doc.get("sentences", [])
-            types    = len({t["lemma"] for t in tokens})
+            lemmas   = Counter(t["lemma"] for t in tokens)
+            types    = len(lemmas)
             n_tokens = len(tokens)
             ttr      = round(types / n_tokens, 4) if n_tokens else 0.0
+            # Hápax: proporción de tipos que aparecen una sola vez en el documento
+            hapax    = sum(1 for n in lemmas.values() if n == 1)
+            # Densidad léxica: palabras de contenido entre las palabras del documento
+            words    = [t["text"].lower() for t in tokens if t["text"].isalpha()]
+            content  = sum(1 for w in words if w not in stopwords)
             self._doc_stats.append({
                 "doc_id":    doc_id,
                 "tokens":    n_tokens,
                 "sentences": len(sents),
                 "types":     types,
                 "ttr":       ttr,
+                "hapax_ratio":         round(hapax / types, 4) if types else 0.0,
+                "lexical_density":     round(content / len(words), 4) if words else 0.0,
+                "avg_sentence_length": round(n_tokens / len(sents), 2) if sents else 0.0,
             })
 
         # Tipos del corpus completo (no la suma de los tipos de cada documento)
