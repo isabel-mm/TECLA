@@ -11,7 +11,7 @@ The module assumes that candidates have already been identified
 through a linguistic filter.
 """
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from math import log2
 from typing import List, Dict, Any, Optional
 import math
@@ -223,43 +223,40 @@ def compute_ncvalue(
     term_stats: Dict[str, Dict[str, int]],
     candidates: List[Dict[str, Any]],
     cvalue: Dict[str, float],
+    n_reference: int = 200,
 ) -> Dict[str, float]:
     """
     Compute NC-value scores (Frantzi et al. 2000).
 
-    NC-value extends C-value by incorporating term context information:
-
-        NC-value(a) = 0.8 * C-value(a) + 0.2 * context_factor(a)
-
-    context_factor(a) = (1 / n_a) * sum_{w in context(a)} weight(w)
+        NC-value(a) = 0.8 * C-value(a) + 0.2 * sum_{b in C_a} f_a(b) * weight(b)
 
     where
-        weight(w)  = |{candidates that co-occur with w}| / |total candidates|
-        n_a        = number of distinct context words of candidate a
-        context(a) = set of content words within ±2 tokens of occurrences of a
+        C_a       = context words of a: nouns, adjectives and verbs within
+                    ±2 tokens of its occurrences
+        f_a(b)    = number of times b appears as a context word of a
+        weight(b) = t(b) / n, with t(b) the number of reference terms b
+                    appears with and n the number of reference terms
+
+    As in Frantzi et al., the reference terms are the top `n_reference`
+    candidates of the list ranked by C-value. Because f_a(b) counts every
+    co-occurrence, the context factor grows with frequency, on the same
+    scale as C-value.
     """
-    context_of: Dict[str, set] = defaultdict(set)
-    cw_cooccurs: Dict[str, set] = defaultdict(set)  # cw -> set of candidate lemmas
-
+    context_of: Dict[str, Counter] = defaultdict(Counter)
     for cand in candidates:
-        lemma = cand["lemma"]
-        for cw in cand.get("context_words", []):
-            context_of[lemma].add(cw)
-            cw_cooccurs[cw].add(lemma)
+        context_of[cand["lemma"]].update(cand.get("context_words", []))
 
-    n_candidates = len(term_stats)
-    cw_weight = {
-        cw: len(lemma_set) / n_candidates
-        for cw, lemma_set in cw_cooccurs.items()
-    } if n_candidates else {}
+    reference = sorted(term_stats, key=lambda t: cvalue.get(t, 0.0), reverse=True)
+    reference = reference[:max(1, min(n_reference, len(reference)))]
+
+    t_b: Counter = Counter()
+    for term in reference:
+        t_b.update(context_of[term].keys())
+    weight = {b: count / len(reference) for b, count in t_b.items()}
 
     ncvalue: Dict[str, float] = {}
     for lemma in term_stats:
-        cw_set = context_of.get(lemma, set())
-        if cw_set:
-            context_factor = sum(cw_weight.get(cw, 0.0) for cw in cw_set) / len(cw_set)
-        else:
-            context_factor = 0.0
+        context_factor = sum(f * weight.get(b, 0.0) for b, f in context_of[lemma].items())
         ncvalue[lemma] = 0.8 * cvalue.get(lemma, 0.0) + 0.2 * context_factor
 
     return ncvalue
