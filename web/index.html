@@ -74,6 +74,56 @@ footer{border-top:1px solid var(--borde);padding:28px 0 40px;color:var(--gris);f
   section{padding:44px 0}
   .portada{padding-top:40px}
 }
+
+/* — movimiento — */
+.progreso{position:fixed;top:0;left:0;height:3px;width:100%;background:linear-gradient(90deg,var(--violeta),var(--teal));transform:scaleX(0);transform-origin:0 50%;z-index:10;pointer-events:none}
+header.barra{background:rgba(255,255,255,.82);backdrop-filter:saturate(1.4) blur(12px);-webkit-backdrop-filter:saturate(1.4) blur(12px);transition:box-shadow .3s ease}
+header.barra.suelta{box-shadow:0 6px 24px rgba(30,27,75,.08)}
+nav a{position:relative;padding:4px 0;transition:color .2s ease}
+nav a::after{content:"";position:absolute;left:0;right:0;bottom:-2px;height:2px;border-radius:2px;background:var(--violeta);transform:scaleX(0);transform-origin:0 50%;transition:transform .3s ease}
+nav a:hover::after,nav a.activo::after{transform:scaleX(1)}
+nav a.activo{color:var(--violeta-osc)}
+.logo{transition:transform .4s cubic-bezier(.34,1.56,.64,1)}
+.marca:hover .logo{transform:rotate(-8deg) scale(1.08)}
+
+.portada{position:relative;overflow:hidden}
+.portada .ancho{position:relative;z-index:1}
+.portada::before,.portada::after{content:"";position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;pointer-events:none}
+.portada::before{width:520px;height:520px;right:-140px;top:-180px;background:#c4b5fd;animation:flotar 16s ease-in-out infinite alternate}
+.portada::after{width:380px;height:380px;left:-120px;top:120px;background:#99f6e4;opacity:.35;animation:flotar 20s ease-in-out infinite alternate-reverse}
+@keyframes flotar{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(40px,50px,0) scale(1.15)}}
+.portada h1{background:linear-gradient(100deg,var(--tinta) 30%,var(--violeta) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+.boton{transition:transform .2s ease,box-shadow .2s ease,background .2s ease}
+.boton:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(124,58,237,.22)}
+.boton:active{transform:translateY(0)}
+.boton.secundario:hover{box-shadow:0 10px 24px rgba(30,27,75,.10)}
+
+.paso img{transition:transform .5s cubic-bezier(.2,.7,.2,1),box-shadow .5s ease}
+.paso img:hover{transform:translateY(-6px) scale(1.015);box-shadow:0 22px 50px rgba(76,29,149,.20)}
+.tarjeta,.enlaces a{transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease}
+.tarjeta:hover,.enlaces a:hover{transform:translateY(-4px);box-shadow:0 14px 32px rgba(30,27,75,.10);border-color:var(--lavanda-borde)}
+
+.bloque-codigo{position:relative}
+.copiar{position:absolute;top:12px;right:12px;background:rgba(255,255,255,.10);color:var(--codigo-texto);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:5px 11px;font:600 13px inherit;cursor:pointer;transition:background .2s ease}
+.copiar:hover{background:rgba(255,255,255,.20)}
+
+/* Aparición al deslizar: solo si hay JavaScript, para que sin él todo se vea */
+.js .aparece{opacity:0;transform:translateY(28px);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1);transition-delay:var(--espera,0s)}
+.js .aparece.izq{transform:translateX(-36px)}
+.js .aparece.der{transform:translateX(36px)}
+.js .aparece.visto{opacity:1;transform:none}
+.js .paso .num{transform:scale(0);transition:transform .5s cubic-bezier(.34,1.56,.64,1) .15s}
+.js .paso .texto.visto .num{transform:scale(1)}
+.js .portada .entra{opacity:0;transform:translateY(18px);animation:entrar .8s cubic-bezier(.2,.7,.2,1) forwards;animation-delay:var(--espera,0s)}
+.js .portada img.entra{transform:translateY(60px)}
+@keyframes entrar{to{opacity:1;transform:none}}
+
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .js .aparece,.js .portada .entra,.js .paso .num{opacity:1!important;transform:none!important}
+}
 </style>
 </head>
 <body>
@@ -150,7 +200,7 @@ footer{border-top:1px solid var(--borde);padding:28px 0 40px;color:var(--gris);f
   <div class="ancho">
     <h2>Instalación</h2>
     <p class="entrada">TECLA es un paquete de Python (versión 3.9 o superior) y funciona en un ordenador personal, sin equipos especiales.</p>
-<pre><code>git clone https://github.com/isabel-mm/TECLA.git
+<div class="bloque-codigo"><pre><code>git clone https://github.com/isabel-mm/TECLA.git
 cd TECLA
 pip install -e .
 
@@ -159,7 +209,7 @@ python -m spacy download es_core_news_md
 python -m spacy download en_core_web_lg
 
 # Abrir la interfaz gráfica
-python gui/tecla_gui.py</code></pre>
+python gui/tecla_gui.py</code></pre></div>
     <p class="nota">También puede usarse desde la línea de comandos, con las órdenes <code>tecla extract</code>, <code>tecla stats</code> y <code>tecla evaluate</code>, o importarse desde un programa en Python.</p>
   </div>
 </section>
@@ -195,5 +245,67 @@ python gui/tecla_gui.py</code></pre>
   </div>
 </footer>
 
+
+<div class="progreso" aria-hidden="true"></div>
+<script>
+(function(){
+  var raiz=document.documentElement; raiz.classList.add("js");
+  var q=function(s){return Array.prototype.slice.call(document.querySelectorAll(s));};
+
+  // Portada: entrada escalonada
+  q(".portada .sub,.portada h1,.portada .lema,.portada .botones,.portada img").forEach(function(el,i){
+    el.classList.add("entra"); el.style.setProperty("--espera",(0.08+i*0.11)+"s");
+  });
+
+  // Aparición al deslizar
+  q("section h2,section p.entrada,.paso .texto,.paso img,.tarjeta,.bloque-codigo,.nota,.enlaces li").forEach(function(el){
+    el.classList.add("aparece");
+  });
+  q(".paso").forEach(function(paso,i){
+    var par=i%2===1, t=paso.querySelector(".texto"), im=paso.querySelector("img");
+    if(t) t.classList.add(par?"der":"izq");
+    if(im) im.classList.add(par?"izq":"der");
+  });
+  q(".rejilla,.enlaces").forEach(function(g){
+    Array.prototype.forEach.call(g.children,function(h,i){
+      (h.classList.contains("aparece")?h:h.querySelector(".aparece")||h).style.setProperty("--espera",(i*0.09)+"s");
+    });
+  });
+  if("IntersectionObserver" in window){
+    var obs=new IntersectionObserver(function(es){
+      es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("visto"); obs.unobserve(e.target); } });
+    },{threshold:0.15,rootMargin:"0px 0px -40px 0px"});
+    q(".aparece").forEach(function(el){obs.observe(el);});
+  } else { q(".aparece").forEach(function(el){el.classList.add("visto");}); }
+
+  // Barra de progreso, sombra de la cabecera y sección activa
+  var barra=document.querySelector(".progreso"), cab=document.querySelector("header.barra");
+  var enlaces=q('nav a[href^="#"]'), secciones=enlaces.map(function(a){return document.querySelector(a.getAttribute("href"));});
+  var pendiente=false;
+  function pintar(){
+    pendiente=false;
+    var y=window.scrollY||raiz.scrollTop, total=raiz.scrollHeight-window.innerHeight;
+    barra.style.transform="scaleX("+(total>0?Math.min(1,y/total):0)+")";
+    cab.classList.toggle("suelta",y>8);
+    var activa=-1;
+    secciones.forEach(function(sec,i){ if(sec && sec.getBoundingClientRect().top<=window.innerHeight*0.35) activa=i; });
+    enlaces.forEach(function(a,i){a.classList.toggle("activo",i===activa);});
+  }
+  window.addEventListener("scroll",function(){ if(!pendiente){pendiente=true;requestAnimationFrame(pintar);} },{passive:true});
+  window.addEventListener("resize",pintar); pintar();
+
+  // Botón para copiar las órdenes de instalación
+  q(".bloque-codigo").forEach(function(caja){
+    var b=document.createElement("button"); b.className="copiar"; b.type="button"; b.textContent="Copiar";
+    b.addEventListener("click",function(){
+      var texto=caja.querySelector("code").innerText;
+      (navigator.clipboard?navigator.clipboard.writeText(texto):Promise.reject()).then(function(){
+        b.textContent="Copiado ✓"; setTimeout(function(){b.textContent="Copiar";},1800);
+      }).catch(function(){ b.textContent="No se pudo copiar"; setTimeout(function(){b.textContent="Copiar";},1800); });
+    });
+    caja.appendChild(b);
+  });
+})();
+</script>
 </body>
 </html>
