@@ -19,6 +19,8 @@ hiddenimports = []
 for package in ("tecla", "pipeline", "customtkinter", "langid", "spacy"):
     datas += collect_data_files(package)
 
+datas += [(str(PROJECT_ROOT / "gui" / "assets"), "gui/assets")]
+
 for package in ("spacy", "numpy"):
     binaries += collect_dynamic_libs(package)
 
@@ -73,6 +75,7 @@ exe = EXE(
     a.datas,
     [],
     name="TECLA",
+    icon=str(PROJECT_ROOT / "gui" / "assets" / "tecla.ico"),
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

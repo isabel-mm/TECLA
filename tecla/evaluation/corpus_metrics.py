@@ -474,45 +474,54 @@ def compute_representativity_score(
     else:
         label, color = "escasamente representativo",      "#dc2626"
 
-    # Natural-language description
-    parts = []
+    # Natural-language description: what pulls the index up and what pulls
+    # it down, read from the same components that make up the score, so that
+    # the text can never contradict the label.
+    def _num(x: float, nd: int = 2) -> str:
+        return "{:.{}f}".format(x, nd).replace(".", ",")
+
     beta = heaps.get("beta")
-    if beta is not None:
-        if beta < 0.35:
-            parts.append("el vocabulario está prácticamente saturado (β={:.2f})".format(beta))
-        elif beta < 0.45:
-            parts.append("el vocabulario crece a ritmo moderado-bajo (β={:.2f})".format(beta))
-        elif beta < 0.55:
-            parts.append("el vocabulario crece a ritmo moderado (β={:.2f})".format(beta))
-        elif beta < 0.65:
-            parts.append(
-                "el vocabulario sigue creciendo notablemente (β={:.2f}); "
-                "añadir más textos mejoraría la cobertura".format(beta)
-            )
-        else:
-            parts.append(
-                "el vocabulario crece de forma pronunciada (β={:.2f}); "
-                "el corpus cubre una porción limitada del dominio".format(beta)
-            )
     r = hapax["ratio"]
-    if r > 0.40:
-        parts.append(
-            "el {:.0%} del vocabulario son hápax léxicos, lo que indica falta de masa textual".format(r)
-        )
-    elif r < 0.20:
-        parts.append("los términos aparecen con buena frecuencia (hápax: {:.0%})".format(r))
-
     dp_m = dp_summary.get("mean", 0.5)
-    if dp_m < 0.35:
-        parts.append(
-            "los términos principales están bien distribuidos por el corpus (DP medio={:.2f})".format(dp_m)
-        )
-    elif dp_m > 0.60:
-        parts.append(
-            "los términos tienden a concentrarse en pocos documentos (DP medio={:.2f})".format(dp_m)
-        )
-
-    description = ("; ".join(parts).capitalize() + ".") if parts else ""
+    texts = {
+        "saturación": (
+            "el vocabulario está cerca de saturarse (exponente de Heaps = {})".format(_num(beta or 0)),
+            "el vocabulario crece a un ritmo moderado (exponente de Heaps = {})".format(_num(beta or 0)),
+            "el vocabulario sigue creciendo (exponente de Heaps = {}), de modo que nuevos textos "
+            "aportarían vocabulario nuevo".format(_num(beta or 0)),
+        ),
+        "hápax léxico": (
+            "la proporción de lemas que aparecen una sola vez es la habitual "
+            "({} %)".format(round(r * 100)),
+            "la proporción de lemas que aparecen una sola vez es algo elevada "
+            "({} %)".format(round(r * 100)),
+            "muchos lemas aparecen una sola vez ({} %)".format(round(r * 100)),
+        ),
+        "dispersión": (
+            "los candidatos principales se reparten por los documentos "
+            "(DP medio = {})".format(_num(dp_m)),
+            "los candidatos principales se reparten de forma desigual "
+            "(DP medio = {})".format(_num(dp_m)),
+            "los candidatos principales se concentran en pocos documentos "
+            "(DP medio = {})".format(_num(dp_m)),
+        ),
+        "estabilidad": (
+            "el núcleo del inventario se mantiene al cambiar los documentos",
+            "el núcleo del inventario varía en parte según los documentos",
+            "el núcleo del inventario cambia según los documentos que se incluyan",
+        ),
+    }
+    pros = [texts[k][0] for k, v in components if v >= 0.66]
+    mids = [texts[k][1] for k, v in components if 0.40 <= v < 0.66]
+    cons = [texts[k][2] for k, v in components if v < 0.40]
+    sentences = []
+    if pros:
+        sentences.append("A favor: " + "; ".join(pros) + ".")
+    if mids:
+        sentences.append("En un punto intermedio: " + "; ".join(mids) + ".")
+    if cons:
+        sentences.append("En contra: " + "; ".join(cons) + ".")
+    description = " ".join(sentences)
 
     return {
         "score":       score,
