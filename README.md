@@ -86,13 +86,35 @@ Inicio y a la lista de programas para desinstalarla.
 
 Los modelos `es_core_news_md` y `en_core_web_lg` deben estar instalados antes
 de compilar: PyInstaller los incluye y la aplicación empaquetada no puede
-descargarlos por su cuenta. La compilación automática de GitHub no incluye esos
-modelos.
+descargarlos por su cuenta.
+
+### Crear la aplicación de macOS
+
+La compilación debe hacerse en macOS, con los mismos requisitos (TECLA,
+PyInstaller y los dos modelos instalados):
+
+```bash
+python -m pip install -e . pyinstaller
+python -m spacy download es_core_news_md
+python -m spacy download en_core_web_lg
+./scripts/build_macos_app.sh
+```
+
+La aplicación se genera en `dist/TECLA.app` y, para distribuirla, como imagen
+de disco en `dist/TECLA-2.0.0-macos-arm64.dmg`: al abrirla, se arrastra TECLA
+a la carpeta Aplicaciones. La imagen solo funciona en la arquitectura en la
+que se compila (`arm64` en los Mac con procesador de Apple). La aplicación no
+lleva firma de desarrollador de Apple, así que la primera vez hay que
+autorizarla en Ajustes del Sistema, «Privacidad y seguridad», con «Abrir
+igualmente».
+
+### Publicar una versión
 
 Al crear y subir una etiqueta `v*` (por ejemplo, `v2.1.0`), GitHub Actions
-compilará el `.exe` en Windows y lo adjuntará a una release para descargar.
-También se puede ejecutar el workflow manualmente desde la pestaña **Actions**;
-en ese caso, el `.exe` estará disponible como artefacto de compilación.
+compila el instalador de Windows y la imagen de disco de macOS, con los
+modelos incluidos, y los adjunta a una release para descargar. También se
+puede ejecutar el workflow manualmente desde la pestaña **Actions**; en ese
+caso, los instaladores quedan disponibles como artefactos de compilación.
 
 Si un modelo no está disponible, TECLA intenta descargarlo y, si falla, cae a un `spacy.blank(...)`. Ese fallback permite ejecutar el pipeline, pero reduce la calidad del análisis lingüístico y de la extracción.
 

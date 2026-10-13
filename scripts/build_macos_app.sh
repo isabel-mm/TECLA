@@ -15,6 +15,24 @@ python3 -m PyInstaller \
   --clean \
   packaging/macos/TECLA.spec
 
+# Disk image for distribution: the app next to a shortcut to Applications
+VERSION="2.0.0"
+DMG_PATH="dist/TECLA-${VERSION}-macos-$(uname -m).dmg"
+STAGING_DIR="$(mktemp -d)"
+trap 'rm -rf "$STAGING_DIR"' EXIT
+
+ditto dist/TECLA.app "$STAGING_DIR/TECLA.app"
+ln -s /Applications "$STAGING_DIR/Applications"
+
+hdiutil create \
+  -volname "TECLA" \
+  -srcfolder "$STAGING_DIR" \
+  -format UDZO \
+  -ov \
+  "$DMG_PATH"
+
 echo
 echo "App generated at:"
 echo "  ${ROOT_DIR}/dist/TECLA.app"
+echo "Disk image generated at:"
+echo "  ${ROOT_DIR}/${DMG_PATH}"

@@ -28,10 +28,11 @@
 !/docs/
 /docs/build/
 
-# --- Empaquetado de la aplicación de escritorio (macOS) ---
+# --- Empaquetado de la aplicación de escritorio (Windows y macOS) ---
 !/packaging/
 !/scripts/
 /scripts/test.py
+!/.github/
 
 # --- Página de presentación (GitHub Pages) y demostración en línea ---
 !/web/
