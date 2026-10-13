@@ -30,6 +30,8 @@ for model_name in ("es_core_news_md", "en_core_web_lg"):
     if importlib.util.find_spec(model_name):
         datas += collect_data_files(model_name)
         binaries += collect_dynamic_libs(model_name)
+        # spacy.load() looks the model up through its package metadata
+        datas += copy_metadata(model_name)
         hiddenimports.append(model_name)
 
 for package_name in (

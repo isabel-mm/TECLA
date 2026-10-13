@@ -68,14 +68,26 @@ instala TECLA y PyInstaller y ejecuta el script incluido:
 
 ```bat
 python -m pip install -e . pyinstaller
+python -m spacy download es_core_news_md
+python -m spacy download en_core_web_lg
 packaging\windows\build_windows.bat
 ```
 
-El archivo se genera en `dist\TECLA.exe`. Si instalas `es_core_news_md` o
-`en_core_web_lg` antes de compilar, PyInstaller los incluirá; esto aumenta
-considerablemente el tamaño. La compilación automática de GitHub no incluye esos
-modelos: TECLA intentará descargarlos al usarlos y, si no puede, recurrirá al
-fallback de spaCy.
+La aplicación se genera como carpeta en `dist\TECLA\` (se abre con
+`TECLA.exe`, que necesita la carpeta `_internal` que lo acompaña) y, comprimida
+para distribuirla, en `dist\TECLA-windows.zip`. Conviene compilar en un entorno
+virtual limpio, para que no se cuelen paquetes ajenos a TECLA.
+
+Si [Inno Setup 6](https://jrsoftware.org/isinfo.php) está instalado
+(`winget install JRSoftware.InnoSetup`), el script genera además el instalador
+`dist\TECLA-2.0.0-setup.exe` a partir de `packaging\windows\TECLA.iss`. Se
+instala por usuario, sin permisos de administrador, y añade TECLA al menú
+Inicio y a la lista de programas para desinstalarla.
+
+Los modelos `es_core_news_md` y `en_core_web_lg` deben estar instalados antes
+de compilar: PyInstaller los incluye y la aplicación empaquetada no puede
+descargarlos por su cuenta. La compilación automática de GitHub no incluye esos
+modelos.
 
 Al crear y subir una etiqueta `v*` (por ejemplo, `v2.1.0`), GitHub Actions
 compilará el `.exe` en Windows y lo adjuntará a una release para descargar.
