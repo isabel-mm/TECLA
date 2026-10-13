@@ -7,6 +7,9 @@ cd "$ROOT_DIR"
 export MPLCONFIGDIR="${ROOT_DIR}/.tmp/matplotlib"
 mkdir -p "$MPLCONFIGDIR"
 
+# NLTK stopword lists: bundled into the app
+python3 -c "import nltk; nltk.download('stopwords', quiet=True)"
+
 python3 -m PyInstaller \
   --noconfirm \
   --clean \

@@ -313,7 +313,12 @@ body[data-p="1"] .pv1,body[data-p="2"] .pv2,body[data-p="3"] .pv3,body[data-p="4
 <section id="instalacion" class="franja">
   <div class="ancho">
     <h2>Instalación</h2>
-    <p class="entrada">TECLA es un paquete de Python (versión 3.9 o superior) y funciona en un ordenador personal, sin equipos especiales.</p>
+    <p class="entrada">En Windows, TECLA se instala como cualquier otro programa: se descarga el instalador, se abre y se siguen los pasos. No hace falta instalar Python ni permisos de administrador, y los modelos lingüísticos de español e inglés ya van incluidos.</p>
+    <div class="botones" style="justify-content:flex-start;margin-bottom:16px">
+      <a class="boton principal" href="https://github.com/isabel-mm/TECLA/releases/latest" style="display:inline-flex;align-items:center;gap:10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 0h11.4v11.4H0zM12.6 0H24v11.4H12.6zM0 12.6h11.4V24H0zM12.6 12.6H24V24H12.6z"/></svg>Descargar para Windows</a>
+    </div>
+    <p class="nota" style="margin-bottom:40px">Al abrir el instalador, Windows puede mostrar el aviso «Windows protegió su PC», porque el programa no lleva firma digital. Basta con pulsar «Más información» y, después, «Ejecutar de todas formas».</p>
+    <p class="entrada">En macOS y Linux, o para usar TECLA desde Python, se instala como paquete (Python 3.9 o superior):</p>
 <div class="bloque-codigo"><pre><code>git clone https://github.com/isabel-mm/TECLA.git
 cd TECLA
 pip install -e .
