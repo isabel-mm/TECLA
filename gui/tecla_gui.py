@@ -1,9 +1,15 @@
 import csv
 import json
+import os
 import sys
 import threading
 from collections import Counter
 from pathlib import Path
+
+# El ejecutable empaquetado no tiene consola: sin salida estándar, tqdm falla
+for _stream in ("stdout", "stderr"):
+    if getattr(sys, _stream) is None:
+        setattr(sys, _stream, open(os.devnull, "w", encoding="utf-8"))
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:

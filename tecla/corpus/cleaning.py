@@ -205,7 +205,9 @@ def _get_spacy_model(language):
             print(f"✅ spaCy model '{model_name}' downloaded and loaded successfully")
             return nlp
 
-        except Exception:
+        # spacy.cli.download aborts with SystemExit when pip is unavailable
+        # (e.g. inside the packaged desktop app)
+        except (Exception, SystemExit):
             nlp = spacy.blank(lang)
             if "sentencizer" not in nlp.pipe_names:
                 nlp.add_pipe("sentencizer")
