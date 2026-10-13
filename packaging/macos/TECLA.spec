@@ -88,6 +88,15 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+
+# The nltk hook bundles every NLTK resource found on the build machine.
+# TECLA only needs the stopword lists.
+a.datas = [
+    entry for entry in a.datas
+    if not entry[0].startswith("nltk_data/")
+    or entry[0].startswith("nltk_data/corpora/stopwords")
+]
+
 pyz = PYZ(a.pure)
 
 exe = EXE(

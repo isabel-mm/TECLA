@@ -174,6 +174,7 @@ def run_tecla_pipeline(
             documents=documents,
             percentile=percentile,
             term_length=term_length,
+            extra_stop_terms=extraction_options.get("extra_stop_terms"),
         )
 
     _log(f"Completado — {len(results)} candidatos extraídos.")

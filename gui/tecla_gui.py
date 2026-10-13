@@ -2534,13 +2534,13 @@ class TeclaApp(ctk.CTk):
                     "remove_bibliography_flag": True,
                     "remove_captions_flag": True,
                     "remove_section_headers_flag": True,
-                    "extra_stoplist": self._get_extra_stoplist() or None,
                 },
                 extraction_options={
                     "multiword_only": not self._include_mono_var.get(),
                     "max_term_length": self.max_term_length_var.get(),
                     "weights": _WEIGHT_PRESETS[self.weight_preset.get()],
                     "grammar_path": self.grammar_path_var.get() or None,
+                    "extra_stop_terms": self._get_extra_stoplist() or None,
                 },
                 on_progress=lambda msg: self.after(0, self._log, msg),
                 on_corpus_ready=lambda docs, folder, lang: self.after(

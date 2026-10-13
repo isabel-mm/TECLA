@@ -88,6 +88,7 @@ class HybridTermExtractor:
         min_freq: int = 2,
         min_doc_freq: int = 1,
         max_span_tokens: int = 6,
+        extra_stop_terms: Optional[List[str]] = None,
         output_path: Optional[Path] = None,
         tbx_output_path: Optional[Path] = None,
     ) -> List[Dict[str, Any]]:
@@ -111,6 +112,9 @@ class HybridTermExtractor:
             Discard terms appearing in fewer than this many documents (default 1).
         max_span_tokens : int
             Maximum number of tokens in a candidate span (default 6).
+        extra_stop_terms : list of str, optional
+            User stoplist: words or phrases that must not be part of any
+            candidate (matched against surface form and lemma).
         output_path : Path, optional
             If given, save results to a CSV file.
         tbx_output_path : Path, optional
@@ -163,7 +167,9 @@ class HybridTermExtractor:
             return []
 
         # 7. Stop-term filtering
-        consolidated = self._filter_stop_terms(consolidated, self.language)
+        consolidated = self._filter_stop_terms(
+            consolidated, self.language, extra=extra_stop_terms
+        )
 
         if not consolidated:
             return []
@@ -242,15 +248,34 @@ class HybridTermExtractor:
         self,
         terms: List[Dict[str, Any]],
         language: str,
+        extra: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Remove candidates whose lemma matches the stop-term list for the
         given language.  Stop-terms are generic academic/methodological
         phrases that pass POS filters but do not designate domain concepts.
+
+        Entries in *extra* (the user stoplist) are stricter: a candidate is
+        removed when it contains the entry as a whole word or word sequence,
+        either in its surface form or in its lemma.
         """
+        extra_seqs = [
+            tuple(entry.lower().split()) for entry in (extra or []) if entry.strip()
+        ]
+
+        def _contains_extra(term: Dict[str, Any]) -> bool:
+            for form in (term["term"], term.get("lemma", "")):
+                tokens = tuple(form.lower().split())
+                for seq in extra_seqs:
+                    n = len(seq)
+                    if any(tokens[i:i + n] == seq for i in range(len(tokens) - n + 1)):
+                        return True
+            return False
+
         return [
             t for t in terms
             if not is_stop_term(t.get("lemma", t["term"]), language)
+            and not _contains_extra(t)
         ]
 
     @staticmethod
