@@ -23,6 +23,8 @@ datas += collect_data_files("customtkinter")
 datas += collect_data_files("langid")
 datas += collect_data_files("spacy")
 
+datas += [(str(PROJECT_ROOT / "gui" / "assets"), "gui/assets")]
+
 binaries += collect_dynamic_libs("spacy")
 binaries += collect_dynamic_libs("numpy")
 
@@ -130,6 +132,8 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name="TECLA.app",
-    icon=None,
+    icon=str(PROJECT_ROOT / "gui" / "assets" / "tecla.icns"),
     bundle_identifier="com.tecla.app",
+    version="2.0.0",
+    info_plist={"NSHighResolutionCapable": True},
 )
