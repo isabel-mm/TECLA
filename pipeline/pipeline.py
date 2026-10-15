@@ -6,17 +6,13 @@ from typing import Optional, Callable
 
 from tecla.corpus.builder import build_corpus, build_corpus_from_txt
 from tecla.corpus.processor import corpus_to_documents
-from tecla.extractor.hybrid_extractor import HybridTermExtractor
+from tecla.extractor.hybrid_extractor import HybridTermExtractor, SUPPORTED_LANGUAGES
 from tecla.debug import log as dlog, timer, start_session
 
 
 _SPACY_MODEL_TABLE = {
     "en": "en_core_web_lg",
     "es": "es_core_news_md",
-    "fr": "fr_core_news_sm",
-    "de": "de_core_news_sm",
-    "it": "it_core_news_sm",
-    "pt": "pt_core_news_sm",
 }
 
 
@@ -118,6 +114,12 @@ def run_tecla_pipeline(
         with timer("Detección de idioma"):
             language = _detect_language_from_folder(clean_folder)
         _log(f"Idioma detectado: '{language}'")
+
+    if language not in SUPPORTED_LANGUAGES:
+        raise ValueError(
+            f"Lengua no admitida: {language!r}. TECLA trabaja con textos en "
+            "español (es) y en inglés (en)."
+        )
 
     # ------------------------------------------------------------------
     # 3. Load spaCy model and build document representations

@@ -88,10 +88,6 @@ from nltk.corpus import stopwords as nltk_stopwords
 NLTK_LANG_MAP = {
     "es": "spanish",
     "en": "english",
-    "fr": "french",
-    "de": "german",
-    "pt": "portuguese",
-    "it": "italian",
 }
 
 
@@ -151,10 +147,6 @@ def get_language_stopwords(language, extra_stoplist=None):
 SPACY_MODEL_TABLE = {
     "en": "en_core_web_lg",
     "es": "es_core_news_md",
-    "fr": "fr_core_news_sm",
-    "de": "de_core_news_sm",
-    "it": "it_core_news_sm",
-    "pt": "pt_core_news_sm",
 }
 
 _SPACY_MODELS = {}
@@ -320,21 +312,6 @@ def remove_bibliography(text, language="en"):
             r'\bBIBLIOGRAPHY\b',
             r'\bWORKS\s+CITED\b'
         ], [r'\[\d+\]', r'\(\d{4}\)', r'https?://', r'\d+\.\s']),
-        "fr": ([
-            r'\bRÉFÉRENCES\b',
-            r'\bBIBLIOGRAPHIE\b'
-        ], [r'\(\d{4}\)', r'https?://']),
-        "de": ([
-            r'\bLITERATUR\b',
-            r'\bBIBLIOGRAPHIE\b'
-        ], [r'\(\d{4}\)', r'https?://']),
-        "it": ([
-            r'\bBIBLIOGRAFIA\b'
-        ], [r'\(\d{4}\)', r'https?://']),
-        "pt": ([
-            r'\bREFERÊNCIAS\b',
-            r'\bBIBLIOGRAFIA\b'
-        ], [r'\(\d{4}\)', r'https?://']),
     }
 
     if lang not in mapping:

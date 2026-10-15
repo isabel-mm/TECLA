@@ -22,10 +22,6 @@ import subprocess
 SPACY_MODELS = {
     "en": "en_core_web_lg",
     "es": "es_core_news_md",
-    "fr": "fr_core_news_sm",
-    "de": "de_core_news_sm",
-    "it": "it_core_news_sm",
-    "pt": "pt_core_news_sm",
 }
 
 # Dependencias Python de TECLA

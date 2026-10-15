@@ -43,16 +43,12 @@ Dependencias principales:
 
 ### Modelos spaCy
 
-TECLA intenta usar estos modelos por lengua:
+TECLA trabaja con textos en español y en inglés, con estos modelos:
 
 | Lengua | Modelo por defecto |
 |---|---|
 | `en` | `en_core_web_lg` |
 | `es` | `es_core_news_md` |
-| `fr` | `fr_core_news_sm` |
-| `de` | `de_core_news_sm` |
-| `it` | `it_core_news_sm` |
-| `pt` | `pt_core_news_sm` |
 
 Es recomendable instalarlos antes de usar TECLA:
 

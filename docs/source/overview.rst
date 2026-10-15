@@ -43,7 +43,7 @@ Flujo del pipeline
 Modelos lingüísticos
 --------------------
 
-TECLA resuelve automáticamente el modelo spaCy a partir de la lengua:
+TECLA trabaja con textos en español y en inglés, y resuelve automáticamente el modelo spaCy a partir de la lengua:
 
 .. list-table::
    :header-rows: 1
@@ -54,14 +54,6 @@ TECLA resuelve automáticamente el modelo spaCy a partir de la lengua:
      - ``en_core_web_lg``
    * - ``es``
      - ``es_core_news_md``
-   * - ``fr``
-     - ``fr_core_news_sm``
-   * - ``de``
-     - ``de_core_news_sm``
-   * - ``it``
-     - ``it_core_news_sm``
-   * - ``pt``
-     - ``pt_core_news_sm``
 
 Si un modelo no está instalado, TECLA intenta descargarlo. Si eso falla, usa un modelo ``blank`` de spaCy. Ese fallback mantiene la ejecución, pero reduce la calidad del etiquetado POS y, por extensión, la calidad de la extracción.
 
