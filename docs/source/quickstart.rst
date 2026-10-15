@@ -57,7 +57,7 @@ Calcular estadísticas de corpus
 .. code-block:: bash
 
    tecla stats \
-     --corpus corpus/_tecla_txt/clean/ \
+     --corpus _tecla_output/textos/clean/ \
      --lang es \
      --output resultados/corpus_stats.csv
 
@@ -114,7 +114,7 @@ Extractor directo
    from tecla.extractor.hybrid_extractor import HybridTermExtractor
 
    documents = corpus_to_documents(
-       corpus_folder="corpus/_tecla_txt/clean",
+       corpus_folder="_tecla_output/textos/clean",
        language="es",
        spacy_model="es_core_news_md",
    )

@@ -2,7 +2,7 @@
 
 # TECLA
 
-**Term Extraction and Corpus Linguistics Application** · [Página de presentación](https://isabel-mm.github.io/TECLA/) · [Demostración en Google Colab](https://colab.research.google.com/github/isabel-mm/TECLA/blob/main/TECLA_colab_demo.ipynb) · [Guía de uso](TECLA_GUIA_USO.pdf)
+**Term Extraction and Corpus Linguistics Application** · [Página de presentación](https://isabel-mm.github.io/TECLA/) · [Demostración en Google Colab](https://colab.research.google.com/github/isabel-mm/TECLA/blob/main/TECLA_colab_demo.ipynb) · [Guía de uso](TECLA_GUIA_USO.pdf) · [Cambios](CHANGELOG.md)
 
 TECLA es una herramienta en Python para construir corpus especializados, limpiarlos, extraer candidatos terminológicos y evaluar tanto la extracción como la calidad del corpus. El proyecto ofrece dos formas principales de uso:
 
@@ -76,7 +76,7 @@ virtual limpio, para que no se cuelen paquetes ajenos a TECLA.
 
 Si [Inno Setup 6](https://jrsoftware.org/isinfo.php) está instalado
 (`winget install JRSoftware.InnoSetup`), el script genera además el instalador
-`dist\TECLA-2.0.0-setup.exe` a partir de `packaging\windows\TECLA.iss`. Se
+`dist\TECLA-instalador-windows-setup.exe` a partir de `packaging\windows\TECLA.iss`. Se
 instala por usuario, sin permisos de administrador, y añade TECLA al menú
 Inicio y a la lista de programas para desinstalarla.
 
@@ -97,7 +97,7 @@ python -m spacy download en_core_web_lg
 ```
 
 La aplicación se genera en `dist/TECLA.app` y, para distribuirla, como imagen
-de disco en `dist/TECLA-2.0.0-macos-arm64.dmg`: al abrirla, se arrastra TECLA
+de disco en `dist/TECLA-instalador-macos-arm64.dmg`: al abrirla, se arrastra TECLA
 a la carpeta Aplicaciones. La imagen solo funciona en la arquitectura en la
 que se compila (`arm64` en los Mac con procesador de Apple). La aplicación no
 lleva firma de desarrollador de Apple, así que la primera vez hay que
@@ -123,18 +123,24 @@ mi_proyecto/
 ├── corpus/
 │   ├── articulo_01.pdf
 │   ├── articulo_02.pdf
-│   ├── articulo_03.txt
-│   ├── metadata.csv
-│   └── _tecla_txt/
-│       ├── raw/
-│       └── clean/
+│   └── articulo_03.txt
+└── _tecla_output/
+    ├── textos/
+    │   ├── raw/
+    │   └── clean/
+    └── metadata.csv
 ```
 
-Cuando usas `run_tecla_pipeline(...)`, TECLA genera automáticamente:
+Cuando usas `run_tecla_pipeline(...)`, TECLA genera automáticamente, junto a la
+carpeta del corpus y nunca dentro de ella:
 
-- `corpus/_tecla_txt/raw/`
-- `corpus/_tecla_txt/clean/`
-- `corpus/metadata.csv`
+- `_tecla_output/textos/raw/`
+- `_tecla_output/textos/clean/`
+- `_tecla_output/metadata.csv`
+
+Los textos y `metadata.csv` se regeneran en cada ejecución, así que un documento
+que se retira del corpus deja de analizarse. El parámetro `output_folder` permite
+elegir otra carpeta de salida.
 
 ## Uso rápido desde terminal
 
@@ -182,7 +188,7 @@ Opciones de limpieza expuestas en la CLI actual:
 
 ```bash
 tecla stats \
-  --corpus corpus/_tecla_txt/clean/ \
+  --corpus _tecla_output/textos/clean/ \
   --lang es \
   --output resultados/corpus_stats.csv
 ```
@@ -237,8 +243,8 @@ from tecla.corpus.builder import build_corpus_from_txt
 
 build_corpus_from_txt(
     input_folder="corpus",
-    out_folder="corpus/_tecla_txt",
-    metadata_file="corpus/metadata.csv",
+    out_folder="_tecla_output/textos",
+    metadata_file="_tecla_output/metadata.csv",
     clean=True,
     clean_params={"structure": True, "remove_bibliography_flag": True},
 )
@@ -253,7 +259,7 @@ from tecla.corpus.processor import corpus_to_documents
 from tecla.extractor.hybrid_extractor import HybridTermExtractor
 
 documents = corpus_to_documents(
-    corpus_folder="corpus/_tecla_txt/clean",
+    corpus_folder="_tecla_output/textos/clean",
     language="es",
     spacy_model="es_core_news_md",
 )
@@ -273,8 +279,8 @@ terms = extractor.extract(
 `run_tecla_pipeline(...)` sigue este orden:
 
 1. Detecta si el corpus contiene PDF o TXT.
-2. Construye `raw/` y `clean/`.
-3. Genera `metadata.csv`.
+2. Construye `raw/` y `clean/` en `_tecla_output/textos/`, borrando los de la ejecución anterior.
+3. Genera `_tecla_output/metadata.csv`.
 4. Detecta la lengua si `language` es `None` o `"auto"`.
 5. Convierte los textos limpios en documentos lingüísticamente anotados.
 6. Extrae candidatos con patrones POS.

@@ -9,6 +9,7 @@
 # --- Configuración del paquete y documentación de uso ---
 !/.gitignore
 !/README.md
+!/CHANGELOG.md
 !/LICENSE
 !/pyproject.toml
 !/requirements.txt

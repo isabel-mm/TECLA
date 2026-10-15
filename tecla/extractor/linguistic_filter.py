@@ -20,7 +20,7 @@ Pattern elements can be:
 """
 
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Iterable, Optional
 import yaml
 
 
@@ -78,13 +78,19 @@ def _is_pos_tag(element: str) -> bool:
     return element in _UD_POS_TAGS
 
 
-def _is_clean_candidate(tokens: List[Dict[str, Any]], language: str) -> bool:
+def _is_clean_candidate(
+    tokens: List[Dict[str, Any]],
+    language: str,
+    extra_stopwords: frozenset = frozenset(),
+) -> bool:
     """
     Return True if the candidate span contains no functional tokens.
 
     Rejects spans where any token has:
     - A POS tag in _BLOCKED_POS (DET, PRON, AUX, CCONJ, SCONJ …)
     - A lemma in the language-specific _FUNCTION_LEMMAS set
+    - A form or lemma in *extra_stopwords* (e.g. the stopwords of the other
+      language, for abstracts written in it)
 
     ADP (prepositions) are NOT blocked: they appear as structural
     connectors inside prepositional patterns and never at span edges
@@ -95,6 +101,11 @@ def _is_clean_candidate(tokens: List[Dict[str, Any]], language: str) -> bool:
         if tok.get("pos", "") in _BLOCKED_POS:
             return False
         if tok.get("lemma", "").lower() in func_lemmas:
+            return False
+        if extra_stopwords and (
+            tok.get("text", "").lower() in extra_stopwords
+            or tok.get("lemma", "").lower() in extra_stopwords
+        ):
             return False
     return True
 
@@ -131,6 +142,7 @@ def extract_candidates(
     language: str,
     grammar_path: Path,
     max_span_tokens: int = 6,
+    extra_stopwords: Optional[Iterable[str]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Extract term candidates from preprocessed documents using
@@ -149,6 +161,10 @@ def extract_candidates(
     grammar_path : Path
         Path to the POS grammar YAML file.
 
+    extra_stopwords : iterable of str, optional
+        Additional words that may not appear in a candidate (compared,
+        lowercased, with the form and the lemma of each token).
+
     Returns
     -------
     list of dict
@@ -162,6 +178,7 @@ def extract_candidates(
 
     patterns = grammar[language]
     candidates = []
+    extra = frozenset(w.lower() for w in (extra_stopwords or ()))
 
     for doc in documents:
         doc_id = doc.get("doc_id")
@@ -190,7 +207,7 @@ def extract_candidates(
                         continue
 
                     # Skip spans that contain functional/stopword tokens
-                    if not _is_clean_candidate(span_tokens, language):
+                    if not _is_clean_candidate(span_tokens, language, extra):
                         continue
 
                     term_text = " ".join(tok["text"] for tok in span_tokens)

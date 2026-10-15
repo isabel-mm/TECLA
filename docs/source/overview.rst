@@ -31,8 +31,8 @@ Flujo del pipeline
 ``run_tecla_pipeline(...)`` sigue este orden:
 
 1. Detecta si la carpeta de entrada contiene PDF o TXT.
-2. Genera ``_tecla_txt/raw`` y ``_tecla_txt/clean``.
-3. Produce ``metadata.csv``.
+2. Genera ``_tecla_output/textos/raw`` y ``_tecla_output/textos/clean``, junto a la carpeta del corpus, borrando los de la ejecución anterior.
+3. Produce ``_tecla_output/metadata.csv``.
 4. Detecta la lengua si el usuario no la indica.
 5. Crea representaciones lingüísticas con spaCy.
 6. Extrae candidatos mediante gramática POS.
@@ -64,14 +64,16 @@ Ejemplo de carpeta de trabajo:
 
 .. code-block:: text
 
-   corpus/
-   ├── articulo_01.pdf
-   ├── articulo_02.pdf
-   ├── articulo_03.txt
-   ├── metadata.csv
-   └── _tecla_txt/
-       ├── raw/
-       └── clean/
+   mi_proyecto/
+   ├── corpus/
+   │   ├── articulo_01.pdf
+   │   ├── articulo_02.pdf
+   │   └── articulo_03.txt
+   └── _tecla_output/
+       ├── textos/
+       │   ├── raw/
+       │   └── clean/
+       └── metadata.csv
 
 Cuando el corpus contiene PDF, TECLA realiza la conversión a texto. Si contiene TXT, omite esa fase y empieza en la limpieza.
 

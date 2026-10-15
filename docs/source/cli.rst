@@ -42,7 +42,7 @@ Calcula estadísticas descriptivas para una carpeta de TXT.
 
 .. code-block:: bash
 
-   tecla stats --corpus corpus/_tecla_txt/clean/ --lang es --output stats.csv
+   tecla stats --corpus _tecla_output/textos/clean/ --lang es --output stats.csv
 
 Argumentos:
 

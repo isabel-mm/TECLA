@@ -1,6 +1,7 @@
 # pipeline/pipeline.py
 
 import os
+import shutil
 from pathlib import Path
 from typing import Optional, Callable
 
@@ -24,6 +25,7 @@ def run_tecla_pipeline(
     spacy_model: Optional[str] = None,
     on_progress: Optional[Callable[[str], None]] = None,
     on_corpus_ready: Optional[Callable] = None,
+    output_folder: Optional[Path] = None,
 ) -> list:
     """
     Run the full TECLA pipeline.
@@ -45,6 +47,17 @@ def run_tecla_pipeline(
         Useful for GUI progress reporting.
     on_corpus_ready : callable, optional
         Called with (documents, clean_folder, language) after processing.
+    output_folder : Path, optional
+        Where TECLA writes what it generates. By default, ``_tecla_output``
+        next to the corpus folder, so that it is never read as part of the
+        corpus. The converted texts and ``metadata.csv`` are regenerated on
+        every run.
+
+    Extraction options, besides those of HybridTermExtractor.extract():
+    ``drop_other_language`` discards the paragraphs written in the other
+    supported language (e.g. English abstracts in a Spanish corpus), and
+    ``other_language_stopwords`` adds that language's stopwords to the
+    words a candidate may not contain.
     """
 
     def _log(msg: str):
@@ -59,10 +72,18 @@ def run_tecla_pipeline(
     # 1. Detect input format
     # ------------------------------------------------------------------
 
-    out_folder = str(corpus_path / "_tecla_txt")
+    output_folder = Path(output_folder) if output_folder else corpus_path.parent / "_tecla_output"
+    out_folder = str(output_folder / "textos")
+    metadata_file = str(output_folder / "metadata.csv")
+
+    # Texts from a previous run are discarded, so that a document removed
+    # from the corpus is not analysed again
+    shutil.rmtree(out_folder, ignore_errors=True)
+    os.makedirs(out_folder, exist_ok=True)
 
     all_files = []
     for dirpath, _, filenames in os.walk(corpus_path):
+        # Output of TECLA 2.0, which wrote it inside the corpus folder
         if "_tecla_txt" in dirpath:
             continue
         for fname in filenames:
@@ -78,7 +99,7 @@ def run_tecla_pipeline(
             build_corpus(
                 input_folder=str(corpus_path),
                 out_folder=out_folder,
-                metadata_file=str(corpus_path / "metadata.csv"),
+                metadata_file=metadata_file,
                 clean=True,
                 clean_params={**cleaning_options},
                 compute_stats=False,
@@ -92,7 +113,7 @@ def run_tecla_pipeline(
             build_corpus_from_txt(
                 input_folder=str(corpus_path),
                 out_folder=out_folder,
-                metadata_file=str(corpus_path / "metadata.csv"),
+                metadata_file=metadata_file,
                 clean=True,
                 clean_params={**cleaning_options},
                 compute_stats=False,
@@ -120,6 +141,11 @@ def run_tecla_pipeline(
             f"Lengua no admitida: {language!r}. TECLA trabaja con textos en "
             "español (es) y en inglés (en)."
         )
+
+    other_language = "en" if language == "es" else "es"
+    if extraction_options.get("drop_other_language"):
+        n_dropped = _drop_other_language_paragraphs(clean_folder, language)
+        _log(f"Párrafos en la otra lengua ('{other_language}') descartados: {n_dropped}")
 
     # ------------------------------------------------------------------
     # 3. Load spaCy model and build document representations
@@ -170,6 +196,18 @@ def run_tecla_pipeline(
         (2, None) if multiword_only else None
     )
 
+    extra_stopwords = None
+    if extraction_options.get("other_language_stopwords"):
+        from tecla.corpus.cleaning import NLTK_LANG_MAP, nltk_stopwords
+        extra_stopwords = set(nltk_stopwords.words(NLTK_LANG_MAP[other_language]))
+
+    # Optional thresholds; when absent, the extractor's defaults apply
+    thresholds = {
+        k: extraction_options[k]
+        for k in ("min_freq", "max_span_tokens")
+        if extraction_options.get(k) is not None
+    }
+
     _log("Puntuando candidatos...")
     with timer(f"Extracción de candidatos (percentil={percentile})"):
         results = extractor.extract(
@@ -177,6 +215,8 @@ def run_tecla_pipeline(
             percentile=percentile,
             term_length=term_length,
             extra_stop_terms=extraction_options.get("extra_stop_terms"),
+            extra_stopwords=extra_stopwords,
+            **thresholds,
         )
 
     _log(f"Completado — {len(results)} candidatos extraídos.")
@@ -187,6 +227,41 @@ def run_tecla_pipeline(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+def _drop_other_language_paragraphs(
+    folder: str, language: str, min_words: int = 8, min_prob: float = 0.9
+) -> int:
+    """
+    Remove from the cleaned texts the paragraphs (one per line) written in
+    the other supported language, such as English abstracts in a Spanish
+    corpus. Short lines (headings, names) are always kept, and a paragraph
+    is only removed when the identifier is confident. Returns how many
+    paragraphs were removed.
+    """
+    from langid.langid import LanguageIdentifier, model
+
+    identifier = LanguageIdentifier.from_modelstring(model, norm_probs=True)
+    identifier.set_languages(sorted(SUPPORTED_LANGUAGES))
+
+    dropped = 0
+    for fname in sorted(os.listdir(folder)):
+        if not fname.lower().endswith(".txt"):
+            continue
+        fpath = os.path.join(folder, fname)
+        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+            lines = f.read().split("\n")
+        kept = []
+        for line in lines:
+            if len(line.split()) >= min_words:
+                lang, prob = identifier.classify(line)
+                if lang != language and prob >= min_prob:
+                    dropped += 1
+                    continue
+            kept.append(line)
+        with open(fpath, "w", encoding="utf-8") as f:
+            f.write("\n".join(kept))
+    return dropped
+
 
 def _detect_language_from_folder(folder: str) -> str:
     from tecla.corpus.language_detection import detect_language
