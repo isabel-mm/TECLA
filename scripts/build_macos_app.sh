@@ -16,8 +16,8 @@ python3 -m PyInstaller \
   packaging/macos/TECLA.spec
 
 # Disk image for distribution: the app next to a shortcut to Applications
-VERSION="2.0.0"
-DMG_PATH="dist/TECLA-${VERSION}-macos-$(uname -m).dmg"
+# No version in the name: the website links to releases/latest/download/
+DMG_PATH="dist/TECLA-instalador-macos-$(uname -m).dmg"
 STAGING_DIR="$(mktemp -d)"
 trap 'rm -rf "$STAGING_DIR"' EXIT
 

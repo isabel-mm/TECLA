@@ -89,6 +89,7 @@ class HybridTermExtractor:
         min_doc_freq: int = 1,
         max_span_tokens: int = 6,
         extra_stop_terms: Optional[List[str]] = None,
+        extra_stopwords: Optional[List[str]] = None,
         output_path: Optional[Path] = None,
         tbx_output_path: Optional[Path] = None,
     ) -> List[Dict[str, Any]]:
@@ -115,6 +116,9 @@ class HybridTermExtractor:
         extra_stop_terms : list of str, optional
             User stoplist: words or phrases that must not be part of any
             candidate (matched against surface form and lemma).
+        extra_stopwords : list of str, optional
+            Single words that may not appear inside a candidate, such as the
+            stopwords of another language present in the corpus.
         output_path : Path, optional
             If given, save results to a CSV file.
         tbx_output_path : Path, optional
@@ -127,6 +131,7 @@ class HybridTermExtractor:
             language=self.language,
             grammar_path=self.grammar_path,
             max_span_tokens=max_span_tokens,
+            extra_stopwords=extra_stopwords,
         )
 
         if not candidates:

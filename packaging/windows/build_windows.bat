@@ -22,7 +22,7 @@ if exist "%ISCC%" (
     "%ISCC%" /Q packaging\windows\TECLA.iss
     if errorlevel 1 exit /b 1
     echo Instalador generado en:
-    echo   %CD%\dist\TECLA-2.0.0-setup.exe
+    echo   %CD%\dist\TECLA-instalador-windows-setup.exe
 ) else (
     echo Inno Setup no esta instalado: no se genera el instalador.
 )

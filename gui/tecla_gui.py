@@ -59,6 +59,11 @@ _SB_BORDER     = "#ddd6fe"   # bordes sidebar (lavanda)
 _STEP_PENDING  = "#c4b5fd"   # contorno de los pasos aún no recorridos
 
 _SESSION_FILE  = Path.home() / ".tecla_session.json"
+_OUTPUT_DIR    = "_tecla_output"   # lo que genera TECLA, junto a la carpeta «corpus»
+
+# Valores por defecto de los ajustes de extracción
+_DEFAULTS = {"max_len": 5, "min_freq": 2, "min_score": 0.0}
+_PCT_MAP  = {"—": 0, "p25": 25, "p50": 50, "p75": 75, "p90": 90}
 # Recursos gráficos (en el ejecutable empaquetado se sirven desde sys._MEIPASS)
 _ASSETS        = Path(getattr(sys, "_MEIPASS", _PROJECT_ROOT)) / "gui" / "assets"
 
@@ -145,6 +150,52 @@ def _help_icon(parent, tooltip_text: str) -> ctk.CTkLabel:
     )
     _Tooltip(lbl, tooltip_text)
     return lbl
+
+
+class _NumberField(ctk.CTkFrame):
+    """Campo numérico con botones − y +; el valor también se puede escribir."""
+
+    def __init__(self, master, variable, minimum, maximum, step=1, decimals=0,
+                 command=None):
+        super().__init__(master, fg_color="transparent")
+        self._var, self._min, self._max = variable, minimum, maximum
+        self._step, self._decimals, self._command = step, decimals, command
+        button = dict(width=28, height=28, corner_radius=6, fg_color=_BG_CARD,
+                      hover_color=_SB_SECTION, border_width=1, border_color=_SB_BORDER,
+                      text_color=_ACCENT, font=ctk.CTkFont(size=15, weight="bold"))
+        ctk.CTkButton(self, text="−", command=lambda: self._bump(-1), **button).pack(side="left")
+        self._entry = ctk.CTkEntry(self, width=64, height=28, justify="center",
+                                   fg_color=_BG_CARD, border_color=_SB_BORDER,
+                                   text_color=_SB_TEXT, font=ctk.CTkFont(size=13))
+        self._entry.pack(side="left", padx=4)
+        ctk.CTkButton(self, text="+", command=lambda: self._bump(1), **button).pack(side="left")
+        self._entry.bind("<Return>", self._commit)
+        self._entry.bind("<FocusOut>", self._commit)
+        variable.trace_add("write", lambda *_: self._show())
+        self._show()
+
+    def _show(self):
+        value = self._var.get()
+        self._entry.delete(0, "end")
+        self._entry.insert(0, f"{value:.{self._decimals}f}" if self._decimals else str(int(value)))
+
+    def _set(self, value):
+        value = min(self._max, max(self._min, value))
+        value = round(value, self._decimals) if self._decimals else int(round(value))
+        changed = value != self._var.get()
+        self._var.set(value)
+        self._show()
+        if changed and self._command:
+            self._command()
+
+    def _bump(self, direction):
+        self._set(self._var.get() + direction * self._step)
+
+    def _commit(self, _=None):
+        try:
+            self._set(float(self._entry.get().replace(",", ".")))
+        except ValueError:
+            self._show()
 
 
 def _tab_header(tab, title: str, description: str):
@@ -328,24 +379,36 @@ class TeclaApp(ctk.CTk):
         self.language_var       = ctk.StringVar(value="es")
         self._include_mono_var  = ctk.BooleanVar(value=False)
 
-        self._percentile_var    = tk.IntVar(value=0)
         self.weight_preset      = ctk.StringVar(value="Equilibrado")
-        self.max_term_length_var = ctk.IntVar(value=5)
+
+        # ── Ajustes de extracción (ventana aparte) ──
+        # Los filtros se aplican al momento; el resto, al volver a ejecutar.
+        self.max_term_length_var = ctk.IntVar(value=_DEFAULTS["max_len"])
+        self._min_freq_var      = ctk.IntVar(value=_DEFAULTS["min_freq"])
+        self._min_score_var     = ctk.DoubleVar(value=_DEFAULTS["min_score"])
+        self._percentile_choice = ctk.StringVar(value="—")
+        self._drop_other_var    = ctk.BooleanVar(value=False)
+        self._other_sw_var      = ctk.BooleanVar(value=False)
+        self._stoplist_var      = ctk.StringVar(value="")
+        self._settings_win      = None
         self._running         = False
-        self._advanced_open   = False   # progressive disclosure sidebar
 
         # ── Datos post-extracción ──
         self._all_results    = []     # CTs completos del pipeline
+        self._results        = []     # CTs que pasan los filtros: el resultado
         self._results_data   = []     # filtrados+ordenados (para display)
+        self._results_job    = None   # actualización diferida tras cambiar filtros
         self._doc_stats      = []     # [{doc_id, tokens, sentences, types}]
         self._documents      = []     # documentos enriquecidos (para evaluación)
         self._clean_folder   = ""
         self._corpus_types   = 0      # tipos (lemas distintos) del corpus completo
+        self._corpus_summary = {}     # hápax, densidad léxica… del corpus completo
 
         # ── Evaluación ──
         self._eval_running   = False
         self._eval_dp_scores = {}     # lemma → DP score
         self._eval_btn       = None   # se asigna al construir el tab
+        self._eval_done      = False
 
         # ── Cobertura externa (lista de referencia opcional) ──
         self._gold_terms     = []     # lista de términos del glosario cargado
@@ -496,6 +559,7 @@ class TeclaApp(ctk.CTk):
                         border_color=_STEP_PENDING, font=ctk.CTkFont(size=12),
                         fg_color=_ACCENT, hover_color=_ACCENT_DIM,
                         checkmark_color="#ffffff", text_color=_SB_TEXT,
+                        command=self._on_filter_changed,
                         ).pack(anchor="w", padx=18, pady=(4, 4))
 
         self._build_section(scroll, "Perfil de puntuación")
@@ -513,117 +577,23 @@ class TeclaApp(ctk.CTk):
                                           wraplength=240, justify="left")
         self._preset_hint.pack(fill="x", padx=18, pady=(0, 8))
 
-        # ── OPCIONES AVANZADAS (progressive disclosure) ──
-        self._adv_toggle_btn = ctk.CTkButton(
-            scroll,
-            text="▸  Opciones avanzadas",
-            fg_color="transparent", hover_color=_SB_SECTION,
-            text_color=_SB_MUTED, font=ctk.CTkFont(size=11),
-            anchor="w", height=26,
-            command=self._toggle_advanced,
-        )
-        self._adv_toggle_btn.pack(fill="x", padx=10, pady=(4, 0))
-
-        self._adv_frame = ctk.CTkFrame(scroll, fg_color="transparent")
-        # starts hidden; _toggle_advanced will pack/forget it
-
-        # — Stoplist adicional —
-        self._build_section(self._adv_frame, "Stoplist adicional")
-        self._stoplist_entry = ctk.CTkEntry(self._adv_frame,
-                                            placeholder_text="palabra1, palabra2, …",
-                                            fg_color=_BG_CARD, border_color=_SB_BORDER,
-                                            text_color=_SB_TEXT)
-        self._stoplist_entry.pack(fill="x", padx=14, pady=(4, 4))
-        ctk.CTkButton(self._adv_frame, text="Cargar desde archivo .txt…",
+        # ── AJUSTES DE EXTRACCIÓN (en una ventana aparte) ──
+        self._build_section(scroll, "Ajustes de extracción")
+        self._settings_summary = ctk.CTkLabel(
+            scroll, text="", font=ctk.CTkFont(size=11), text_color=_SB_MUTED,
+            wraplength=240, justify="left", anchor="w")
+        self._settings_summary.pack(fill="x", padx=18, pady=(2, 4))
+        ctk.CTkButton(scroll, text="⚙  Ajustes de extracción…", height=32,
                       fg_color="transparent", hover_color=_SB_SECTION,
-                      border_width=1, border_color=_SB_BORDER,
-                      text_color=_SB_MUTED,
-                      height=30, font=ctk.CTkFont(size=12),
-                      command=self._browse_stoplist,
-                      ).pack(fill="x", padx=14, pady=(0, 8))
-
-        # — Gramática personalizada —
-        self._build_section(self._adv_frame, "Gramática POS personalizada")
-        ctk.CTkLabel(self._adv_frame,
-                     text="Por defecto se usa la gramática incorporada.\n"
-                          "Puedes proporcionar tu propia gramática .yaml.",
-                     font=ctk.CTkFont(size=10), text_color=_SB_MUTED,
-                     wraplength=240, justify="left",
-                     ).pack(fill="x", padx=14, pady=(4, 4))
-        ctk.CTkEntry(self._adv_frame, textvariable=self.grammar_path_var,
-                     placeholder_text="grammar.yaml (opcional)",
-                     fg_color=_BG_CARD, border_color=_SB_BORDER,
-                     text_color=_SB_TEXT,
-                     ).pack(fill="x", padx=14, pady=(0, 4))
-        ctk.CTkButton(self._adv_frame, text="Seleccionar gramática…",
-                      fg_color="transparent", hover_color=_SB_SECTION,
-                      border_width=1, border_color=_SB_BORDER,
-                      text_color=_SB_MUTED,
-                      height=30, font=ctk.CTkFont(size=12),
-                      command=self._browse_grammar,
-                      ).pack(fill="x", padx=14, pady=(0, 8))
-
-        # — Longitud máxima de CT —
-        self._build_section(self._adv_frame, "Longitud máxima de los candidatos")
-        self._max_len_label = ctk.CTkLabel(self._adv_frame, text="Tokens máx. por candidato: 5",
-                                            font=ctk.CTkFont(size=11), text_color=_SB_MUTED, anchor="w")
-        self._max_len_label.pack(fill="x", padx=18, pady=(4, 0))
-        self._max_len_slider = ctk.CTkSlider(self._adv_frame, from_=1, to=15, number_of_steps=14,
-                                              fg_color=_SB_BORDER, progress_color=_ACCENT,
-                                              button_color=_ACCENT, button_hover_color=_ACCENT_DIM,
-                                              command=self._on_max_len_changed)
-        self._max_len_slider.set(5)
-        self._max_len_slider.pack(fill="x", padx=18, pady=(2, 8))
-
-        # — Filtrar resultados —
-        self._build_section(self._adv_frame, "Filtrar candidatos")
-        self._min_freq_label = ctk.CTkLabel(self._adv_frame, text="Frecuencia mínima: 1",
-                                             font=ctk.CTkFont(size=11), text_color=_SB_MUTED, anchor="w")
-        self._min_freq_label.pack(fill="x", padx=18, pady=(4, 0))
-        self._min_freq_slider = ctk.CTkSlider(self._adv_frame, from_=1, to=50, number_of_steps=49,
-                                               fg_color=_SB_BORDER, progress_color=_ACCENT,
-                                               button_color=_ACCENT, button_hover_color=_ACCENT_DIM,
-                                               command=self._on_filter_changed)
-        self._min_freq_slider.set(1)
-        self._min_freq_slider.pack(fill="x", padx=18, pady=(2, 4))
-
-        self._exclude_hapax_var = tk.BooleanVar(value=False)
-        ctk.CTkCheckBox(
-            self._adv_frame,
-            text="Excluir hápax (frecuencia = 1)",
-            variable=self._exclude_hapax_var,
-            font=ctk.CTkFont(size=11), text_color=_SB_MUTED,
-            fg_color=_ACCENT, hover_color=_ACCENT_DIM,
-            checkmark_color="#ffffff",
-            command=self._on_filter_changed,
-        ).pack(anchor="w", padx=18, pady=(0, 6))
-
-
-        ctk.CTkLabel(
-            self._adv_frame, text="Percentil mínimo",
-            font=ctk.CTkFont(size=11), text_color=_SB_MUTED, anchor="w",
-        ).pack(fill="x", padx=18, pady=(4, 2))
-        self._percentile_seg = _Segmented(
-            self._adv_frame,
-            values=["—", "p25", "p50", "p75", "p90"],
-            fg_color=_SB_SECTION, selected_color=_SEG_SELECTED,
-            selected_hover_color=_SEG_SEL_HOV, unselected_color=_SB_SECTION,
-            text_color=_SEG_TEXT, text_color_disabled=_SB_TEXT,
-            font=ctk.CTkFont(size=11),
-            command=self._on_percentile_changed,
-        )
-        self._percentile_seg.set("—")
-        self._percentile_seg.pack(fill="x", padx=18, pady=(0, 8))
-
-        self._min_score_label = ctk.CTkLabel(self._adv_frame, text="Score mínimo: 0.00",
-                                              font=ctk.CTkFont(size=11), text_color=_SB_MUTED, anchor="w")
-        self._min_score_label.pack(fill="x", padx=18)
-        self._min_score_slider = ctk.CTkSlider(self._adv_frame, from_=0, to=1, number_of_steps=100,
-                                                fg_color=_SB_BORDER, progress_color=_ACCENT,
-                                                button_color=_ACCENT, button_hover_color=_ACCENT_DIM,
-                                                command=self._on_filter_changed)
-        self._min_score_slider.set(0)
-        self._min_score_slider.pack(fill="x", padx=18, pady=(2, 10))
+                      border_width=1, border_color=_ACCENT,
+                      text_color=_ACCENT, font=ctk.CTkFont(size=12, weight="bold"),
+                      command=self._open_settings,
+                      ).pack(fill="x", padx=14, pady=(2, 10))
+        for var in (self.max_term_length_var, self._min_freq_var, self._min_score_var,
+                    self._percentile_choice, self._drop_other_var, self._other_sw_var,
+                    self._stoplist_var, self.grammar_path_var):
+            var.trace_add("write", lambda *_: self._update_settings_summary())
+        self._update_settings_summary()
 
         # ── Botón de extracción ──
         ctk.CTkFrame(s, height=1, fg_color=_SB_BORDER, corner_radius=0).pack(fill="x")
@@ -639,6 +609,207 @@ class TeclaApp(ctk.CTk):
             command=self._start_extraction,
         )
         self._run_btn.pack(fill="x", padx=14, pady=12)
+
+    def _update_settings_summary(self):
+        """Resume en la barra lateral los ajustes que no están por defecto."""
+        changed = []
+        if self.max_term_length_var.get() != _DEFAULTS["max_len"]:
+            changed.append(f"longitud máx. {self.max_term_length_var.get()}")
+        if self._min_freq_var.get() != _DEFAULTS["min_freq"]:
+            changed.append(f"frecuencia mín. {self._min_freq_var.get()}")
+        if self._min_score_var.get() > 0:
+            changed.append(f"puntuación mín. {self._min_score_var.get():.2f}")
+        if self._percentile_choice.get() != "—":
+            changed.append(f"percentil {self._percentile_choice.get()}")
+        if self._drop_other_var.get():
+            changed.append("sin párrafos en la otra lengua")
+        if self._other_sw_var.get():
+            changed.append("sin palabras vacías de la otra lengua")
+        if self._get_extra_stoplist():
+            changed.append(f"stoplist ({len(self._get_extra_stoplist())})")
+        if self.grammar_path_var.get():
+            changed.append("gramática propia")
+        text = ("Valores por defecto." if not changed
+                else "Cambiado: " + " · ".join(changed) + ".")
+        self._settings_summary.configure(text=text)
+
+    def _other_language_name(self) -> str:
+        return {"es": "inglés", "en": "español"}.get(self.language_var.get(), "la otra lengua")
+
+    def _open_settings(self):
+        """Ventana de ajustes de extracción, con ayuda en cada opción."""
+        if self._settings_win is not None and self._settings_win.winfo_exists():
+            self._settings_win.deiconify()
+            self._settings_win.lift()
+            self._settings_win.focus_force()
+            return
+
+        win = ctk.CTkToplevel(self)
+        self._settings_win = win
+        win.title("Ajustes de extracción")
+        win.geometry("500x720")
+        win.minsize(440, 520)
+        win.configure(fg_color=_SB_BG)
+        win.transient(self)
+
+        footer = ctk.CTkFrame(win, fg_color=_SB_BG, height=60)
+        footer.pack(side="bottom", fill="x")
+        footer.pack_propagate(False)
+        ctk.CTkFrame(win, height=1, fg_color=_SB_BORDER, corner_radius=0).pack(side="bottom", fill="x")
+        ctk.CTkButton(footer, text="Cerrar", width=110, height=34,
+                      fg_color=_ACCENT, hover_color=_ACCENT_DIM, text_color="#ffffff",
+                      font=ctk.CTkFont(size=13, weight="bold"),
+                      command=win.destroy).pack(side="right", padx=16, pady=12)
+        ctk.CTkButton(footer, text="Restablecer valores", width=150, height=34,
+                      fg_color="transparent", hover_color=_SB_SECTION,
+                      border_width=1, border_color=_SB_BORDER, text_color=_SB_MUTED,
+                      font=ctk.CTkFont(size=12),
+                      command=self._reset_settings).pack(side="right", pady=12)
+
+        body = ctk.CTkScrollableFrame(win, fg_color=_SB_BG, scrollbar_button_color=_SB_SECTION)
+        body.pack(fill="both", expand=True)
+
+        ctk.CTkLabel(body, text="Ajustes de extracción",
+                     font=ctk.CTkFont(size=17, weight="bold"),
+                     text_color=_SB_TEXT, anchor="w").pack(fill="x", padx=18, pady=(14, 2))
+        ctk.CTkLabel(body,
+                     text="Los filtros se aplican al momento a la tabla de candidatos, "
+                          "la evaluación y la revisión. El resto de ajustes se aplica "
+                          "la próxima vez que pulses Ejecutar.",
+                     font=ctk.CTkFont(size=11), text_color=_SB_MUTED,
+                     wraplength=430, justify="left", anchor="w").pack(fill="x", padx=18, pady=(0, 4))
+
+        def card(title, when):
+            ctk.CTkLabel(body, text=f"{title.upper()}  ·  {when}", height=18,
+                         font=ctk.CTkFont(size=10, weight="bold"),
+                         text_color=_SB_MUTED, anchor="w").pack(fill="x", padx=18, pady=(14, 4))
+            frame = ctk.CTkFrame(body, fg_color=_BG_CARD, corner_radius=10,
+                                 border_width=1, border_color=_SB_BORDER)
+            frame.pack(fill="x", padx=14)
+            return frame
+
+        def labelled(parent, text, help_text):
+            row = ctk.CTkFrame(parent, fg_color="transparent")
+            row.pack(fill="x", padx=12, pady=6)
+            name = ctk.CTkFrame(row, fg_color="transparent")
+            name.pack(side="left")
+            ctk.CTkLabel(name, text=text, font=ctk.CTkFont(size=12),
+                         text_color=_SB_TEXT).pack(side="left")
+            _help_icon(name, help_text).pack(side="left", padx=(6, 0))
+            return row
+
+        # — Filtros —
+        f = card("Filtros", "al momento")
+        row = labelled(f, "Frecuencia mínima",
+                       "Número mínimo de veces que un candidato aparece en todo el corpus. "
+                       "Con 1 se incluyen también los hápax, los candidatos que aparecen "
+                       "una sola vez.")
+        _NumberField(row, self._min_freq_var, 1, 9999,
+                     command=self._on_filter_changed).pack(side="right")
+        row = labelled(f, "Puntuación mínima",
+                       "Valor mínimo del índice de terminologicidad, entre 0 y 1. El índice "
+                       "combina TF-IDF y NC-value según el perfil de puntuación elegido.")
+        _NumberField(row, self._min_score_var, 0, 1, step=0.05, decimals=2,
+                     command=self._on_filter_changed).pack(side="right")
+        row = labelled(f, "Percentil mínimo",
+                       "Conserva solo los candidatos con mejor puntuación: con p75, por "
+                       "ejemplo, queda el 25 % superior. Con «—» no se aplica.")
+        _Segmented(f, values=list(_PCT_MAP), variable=self._percentile_choice,
+                   font=ctk.CTkFont(size=11),
+                   command=lambda _v: self._on_filter_changed(),
+                   ).pack(fill="x", padx=12, pady=(0, 10))
+
+        # — Candidatos —
+        f = card("Candidatos", "al volver a ejecutar")
+        row = labelled(f, "Longitud máxima (palabras)",
+                       "Número máximo de palabras de un candidato, incluidas las "
+                       "preposiciones, como «de» en «anotación de corpus».")
+        _NumberField(row, self.max_term_length_var, 1, 15).pack(side="right")
+
+        # — Otra lengua —
+        f = card("Otra lengua en el corpus", "al volver a ejecutar")
+        ctk.CTkLabel(f, text="Para textos con partes en otra lengua, como los resúmenes "
+                             "en inglés de los artículos en español.",
+                     font=ctk.CTkFont(size=11), text_color=_SB_MUTED,
+                     wraplength=410, justify="left", anchor="w").pack(fill="x", padx=12, pady=(8, 0))
+        checks = []
+        for var, help_text in (
+            (self._drop_other_var,
+             "Antes del análisis, se detecta la lengua de cada párrafo y se eliminan "
+             "los que están claramente en la otra lengua. Los párrafos de menos de "
+             "ocho palabras, como los títulos, se conservan."),
+            (self._other_sw_var,
+             "Descarta los candidatos que contienen palabras gramaticales de la otra "
+             "lengua (the, of, and… o de, la, y…). Recoge las frases sueltas que el "
+             "filtro de párrafos deja pasar."),
+        ):
+            row = ctk.CTkFrame(f, fg_color="transparent")
+            row.pack(fill="x", padx=12, pady=6)
+            box = ctk.CTkCheckBox(row, text="", variable=var,
+                                  checkbox_width=18, checkbox_height=18, border_width=2,
+                                  border_color=_STEP_PENDING, font=ctk.CTkFont(size=12),
+                                  fg_color=_ACCENT, hover_color=_ACCENT_DIM,
+                                  checkmark_color="#ffffff", text_color=_SB_TEXT)
+            box.pack(side="left")
+            _help_icon(row, help_text).pack(side="left", padx=(6, 0))
+            checks.append(box)
+        checks[-1].master.pack_configure(pady=(6, 10))
+
+        def _name_checks(*_):
+            if not win.winfo_exists():
+                return
+            other = self._other_language_name()
+            checks[0].configure(text=f"Descartar los párrafos en {other}")
+            checks[1].configure(text=f"Excluir las palabras vacías del {other}"
+                                if other != "la otra lengua"
+                                else "Excluir las palabras vacías de la otra lengua")
+        _name_checks()
+        trace = self.language_var.trace_add("write", _name_checks)
+        win.bind("<Destroy>", lambda e: e.widget is win and self.language_var.trace_remove("write", trace))
+
+        # — Stoplist —
+        f = card("Stoplist adicional", "al volver a ejecutar")
+        labelled(f, "Palabras que no pueden formar parte de un candidato",
+                 "Palabras o expresiones separadas por comas. Ningún candidato que las "
+                 "contenga llega a la tabla. Sirve para descartar vocabulario general "
+                 "que se cuela en la extracción.")
+        ctk.CTkEntry(f, textvariable=self._stoplist_var,
+                     placeholder_text="palabra1, palabra2, …",
+                     fg_color=_BG_ROOT, border_color=_SB_BORDER,
+                     text_color=_SB_TEXT).pack(fill="x", padx=12, pady=(0, 4))
+        ctk.CTkButton(f, text="Cargar desde archivo .txt…",
+                      fg_color="transparent", hover_color=_SB_SECTION,
+                      border_width=1, border_color=_SB_BORDER, text_color=_SB_MUTED,
+                      height=30, font=ctk.CTkFont(size=12),
+                      command=self._browse_stoplist).pack(fill="x", padx=12, pady=(0, 10))
+
+        # — Gramática —
+        f = card("Gramática de patrones", "al volver a ejecutar")
+        labelled(f, "Archivo de gramática (.yaml)",
+                 "Por defecto se usa la gramática incluida en TECLA, con los patrones "
+                 "morfosintácticos de los términos en español y en inglés. Puede "
+                 "sustituirse por un archivo .yaml propio con otros patrones.")
+        ctk.CTkEntry(f, textvariable=self.grammar_path_var,
+                     placeholder_text="Gramática incluida en TECLA",
+                     fg_color=_BG_ROOT, border_color=_SB_BORDER,
+                     text_color=_SB_TEXT).pack(fill="x", padx=12, pady=(0, 4))
+        ctk.CTkButton(f, text="Seleccionar gramática…",
+                      fg_color="transparent", hover_color=_SB_SECTION,
+                      border_width=1, border_color=_SB_BORDER, text_color=_SB_MUTED,
+                      height=30, font=ctk.CTkFont(size=12),
+                      command=self._browse_grammar).pack(fill="x", padx=12, pady=(0, 10))
+        ctk.CTkFrame(body, height=10, fg_color="transparent").pack()
+
+    def _reset_settings(self):
+        self.max_term_length_var.set(_DEFAULTS["max_len"])
+        self._min_freq_var.set(_DEFAULTS["min_freq"])
+        self._min_score_var.set(_DEFAULTS["min_score"])
+        self._percentile_choice.set("—")
+        self._drop_other_var.set(False)
+        self._other_sw_var.set(False)
+        self._stoplist_var.set("")
+        self.grammar_path_var.set("")
+        self._on_filter_changed()
 
     def _build_section(self, parent, label: str):
         """Cabecera de sección de la sidebar."""
@@ -712,6 +883,12 @@ class TeclaApp(ctk.CTk):
             ("docs", "documentos"), ("tokens", "tokens"), ("sents", "oraciones"),
             ("types", "tipos únicos"), ("ttr", "TTR"),
         ])
+        self._corpus_cards.update(_stat_cards(tab, [
+            ("doc_len", "tokens por documento (media)"),
+            ("sent_len", "tokens por oración (media)"),
+            ("hapax", "hápax (proporción de tipos)"),
+            ("density", "densidad léxica"),
+        ]))
 
         # ── Cabecera tabla ──
         hdr = ctk.CTkFrame(tab, fg_color="transparent")
@@ -720,12 +897,23 @@ class TeclaApp(ctk.CTk):
                      font=ctk.CTkFont(size=13, weight="bold"),
                      text_color=_TEXT).pack(side="left")
         ctk.CTkButton(
-            hdr, text="Exportar CSV", width=120, height=28,
+            hdr, text="Guardar como…", width=120, height=28,
             fg_color="transparent", hover_color=_BG_CARD,
             border_width=1, border_color=_ACCENT2,
             text_color=_ACCENT2, font=ctk.CTkFont(size=11),
             command=self._export_corpus_csv,
         ).pack(side="right")
+        ctk.CTkButton(
+            hdr, text="Abrir tabla", width=110, height=28,
+            fg_color=_ACCENT, hover_color=_ACCENT_DIM,
+            text_color="#ffffff", font=ctk.CTkFont(size=11, weight="bold"),
+            command=self._open_corpus_stats,
+        ).pack(side="right", padx=(0, 6))
+        ctk.CTkLabel(
+            tab, text=f"La tabla se guarda sola, en cada ejecución, en "
+                      f"{_OUTPUT_DIR}/estadisticas_corpus.csv.",
+            font=ctk.CTkFont(size=11), text_color=_TEXT_MUTED, anchor="w",
+        ).pack(fill="x", padx=18, pady=(0, 4))
 
         # ── Treeview de documentos ──
         corpus_wrap = tk.Frame(tab, bg=_BG_ROOT)
@@ -840,8 +1028,15 @@ class TeclaApp(ctk.CTk):
                            ("sents", _miles(total_sent)), ("types", _miles(total_types)),
                            ("ttr", f"{corpus_ttr:.4f}")):
             self._corpus_cards[key].configure(text=value)
-        self._ext_cards["docs"].configure(text=_miles(len(self._doc_stats)))
-        self._ext_cards["tokens"].configure(text=_miles(total_tok))
+        summary = self._corpus_summary
+        n_docs  = len(self._doc_stats)
+        for key, value in (
+            ("doc_len",  _miles(round(total_tok / n_docs)) if n_docs else "—"),
+            ("sent_len", f"{total_tok / total_sent:.1f}" if total_sent else "—"),
+            ("hapax",    f"{summary.get('hapax_ratio', 0):.3f}"),
+            ("density",  f"{summary.get('lexical_density', 0):.3f}"),
+        ):
+            self._corpus_cards[key].configure(text=value)
         self._corpus_welcome.pack_forget()
         self._corpus_body.pack(fill="both", expand=True)
         self._tabview.mark_done("Corpus")
@@ -866,6 +1061,17 @@ class TeclaApp(ctk.CTk):
                     meta.get("tema", ""),
                 ))
 
+    def _corpus_stats_file(self) -> Path:
+        return self._output_dir() / "estadisticas_corpus.csv"
+
+    def _open_corpus_stats(self):
+        """Abre la tabla de estadísticas con la aplicación predeterminada."""
+        if not self._doc_stats:
+            messagebox.showwarning("Sin datos", "Ejecuta TECLA para obtener las estadísticas.")
+            return
+        self._write_corpus_stats(self._corpus_stats_file())
+        self._open_folder(self._corpus_stats_file())
+
     def _export_corpus_csv(self):
         if not self._doc_stats:
             messagebox.showwarning("Sin datos", "No hay datos de corpus para exportar.")
@@ -877,11 +1083,18 @@ class TeclaApp(ctk.CTk):
         )
         if not path:
             return
+        self._write_corpus_stats(Path(path))
+        messagebox.showinfo("Exportado", f"Tabla guardada en:\n{path}")
+
+    def _write_corpus_stats(self, path: Path):
+        """Tabla de estadísticas por documento, con los metadatos y el total.
+        Se guarda sola en la carpeta de salida en cada ejecución."""
         total_tok   = sum(d["tokens"]    for d in self._doc_stats)
         total_sent  = sum(d["sentences"] for d in self._doc_stats)
         total_types = self._corpus_types or sum(d["types"] for d in self._doc_stats)
         corpus_ttr  = round(total_types / total_tok, 4) if total_tok else 0.0
-        with open(path, "w", newline="", encoding="utf-8") as f:
+        # utf-8-sig: Excel reconoce así las tildes al abrir el CSV
+        with open(path, "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.writer(f)
             writer.writerow(["documento", "tokens", "oraciones", "tipos_unicos", "ttr",
                              "hapax", "densidad_lexica", "longitud_media_oracion",
@@ -896,9 +1109,11 @@ class TeclaApp(ctk.CTk):
                     meta.get("tema", ""), meta.get("fuente", ""), meta.get("notas", ""),
                 ])
             writer.writerow([])
+            summary = self._corpus_summary
             writer.writerow(["TOTAL", total_tok, total_sent, total_types, corpus_ttr,
-                             "", "", "", "", "", "", "", ""])
-        messagebox.showinfo("Exportado", f"Tabla guardada en:\n{path}")
+                             summary.get("hapax_ratio", ""), summary.get("lexical_density", ""),
+                             round(total_tok / total_sent, 2) if total_sent else "",
+                             "", "", "", "", ""])
 
     # ═══════════════════════════════════════════
     # Pestaña 2 — Extracción
@@ -911,8 +1126,10 @@ class TeclaApp(ctk.CTk):
 
         # ── Cifras ──
         self._ext_cards = _stat_cards(tab, [
-            ("docs", "documentos"), ("tokens", "tokens"),
-            ("cands", "candidatos a término"), ("shown", "mostrados con los filtros"),
+            ("shown", "candidatos (con los filtros)"),
+            ("cands", "extraídos en total"),
+            ("multi", "poliléxicos · monoléxicos"),
+            ("spread", "en 2 o más documentos"),
         ])
 
         # ── Log ──
@@ -1074,23 +1291,34 @@ class TeclaApp(ctk.CTk):
     # Pestaña 3 — Gráficos
     # ═══════════════════════════════════════════
 
-    def _extraction_graphs_dir(self) -> Path:
+    def _output_dir(self) -> Path:
+        """Carpeta donde TECLA guarda lo que genera, junto a la carpeta «corpus»
+        (nunca dentro de ella, para que no se lea como parte del corpus)."""
         workdir = self.corpus_path_var.get()
-        base = Path(workdir) if workdir else Path.home()
-        out = base / "_tecla_output" / "graphs" / "extraction"
+        out = (Path(workdir) if workdir else Path.home()) / _OUTPUT_DIR
+        out.mkdir(parents=True, exist_ok=True)
+        return out
+
+    def _user_file(self, name: str, legacy: str) -> Path:
+        """Archivo con trabajo del usuario en la carpeta de salida; si aún no
+        existe, el que guardaba TECLA 2.0 en la carpeta de trabajo."""
+        current = self._output_dir() / name
+        old = Path(self.corpus_path_var.get()) / legacy
+        return old if not current.exists() and old.exists() else current
+
+    def _extraction_graphs_dir(self) -> Path:
+        out = self._output_dir() / "graphs" / "extraction"
         out.mkdir(parents=True, exist_ok=True)
         return out
 
     def _evaluation_graphs_dir(self) -> Path:
-        workdir = self.corpus_path_var.get()
-        base = Path(workdir) if workdir else Path.home()
-        out = base / "_tecla_output" / "graphs" / "evaluation"
+        out = self._output_dir() / "graphs" / "evaluation"
         out.mkdir(parents=True, exist_ok=True)
         return out
 
     def _update_graficos(self):
         """Genera los gráficos de extracción y los guarda como PNG."""
-        if not self._all_results:
+        if not self._results:
             return
 
         try:
@@ -1101,12 +1329,12 @@ class TeclaApp(ctk.CTk):
             self._log("⚠  Instala matplotlib para generar los gráficos: pip install matplotlib")
             return
 
-        scores  = [t["terminologicity"]    for t in self._all_results]
-        freqs   = [t["frequency"]          for t in self._all_results]
-        tfidf   = [t.get("tf_idf", 0)     for t in self._all_results]
-        ncval   = [t.get("nc_value", 0)   for t in self._all_results]
-        doc_frq = [t["doc_frequency"]   for t in self._all_results]
-        top20   = sorted(self._all_results, key=lambda t: t["frequency"], reverse=True)[:20]
+        scores  = [t["terminologicity"]    for t in self._results]
+        freqs   = [t["frequency"]          for t in self._results]
+        tfidf   = [t.get("tf_idf", 0)     for t in self._results]
+        ncval   = [t.get("nc_value", 0)   for t in self._results]
+        doc_frq = [t["doc_frequency"]   for t in self._results]
+        top20   = sorted(self._results, key=lambda t: t["frequency"], reverse=True)[:20]
 
         out_dir = self._extraction_graphs_dir()
 
@@ -1321,7 +1549,7 @@ class TeclaApp(ctk.CTk):
         max_rows   = 300   # la lista se limita para que la interfaz no se bloquee
         omitted    = 0
 
-        for t in self._all_results:
+        for t in self._results:
             term  = t["lemma"]
             entry = self._review_data.get(term, {"status": "pendiente", "notes": ""})
             if filter_val != "todos" and entry["status"] != filter_val:
@@ -1720,7 +1948,7 @@ class TeclaApp(ctk.CTk):
     # ── Evaluación completa (bajo demanda) ──
 
     def _start_full_eval(self):
-        if self._eval_running or not self._all_results or not self._doc_stats:
+        if self._eval_running or not self._results or not self._doc_stats:
             return
         self._eval_running = True
         self._eval_btn.configure(state="disabled", text="Calculando métricas…")
@@ -1739,15 +1967,15 @@ class TeclaApp(ctk.CTk):
             # ── Fase 1: métricas rápidas ──────────────────────────────────
             heaps     = compute_heaps(self._documents)
             hapax     = compute_hapax_ratio(self._documents)
-            dp_scores = compute_dp(self._all_results, self._doc_stats)
-            dp_sum    = dp_stats(dp_scores, self._all_results)
+            dp_scores = compute_dp(self._results, self._doc_stats)
+            dp_sum    = dp_stats(dp_scores, self._results)
             rep_fast  = compute_representativity_score(heaps, hapax, dp_sum)
             self.after(0, self._render_eval_fast, heaps, dp_scores, rep_fast)
             self.after(0, lambda: self._eval_btn.configure(
                 text="Calculando estabilidad (bootstrap)…"))
 
             # ── Fase 2: bootstrap (más lento) ─────────────────────────────
-            stability = compute_bootstrap_stability(self._all_results, self._doc_stats)
+            stability = compute_bootstrap_stability(self._results, self._doc_stats)
             rep = compute_representativity_score(heaps, hapax, dp_sum, stability=stability)
             self.after(0, self._render_bootstrap_results, stability, rep)
 
@@ -1763,6 +1991,7 @@ class TeclaApp(ctk.CTk):
                 state="normal", text="Recalcular representatividad"))
 
     def _render_eval_fast(self, heaps, dp_scores, rep):
+        self._eval_done = True
         self._tabview.mark_done("Evaluación")
         score = rep["score"]
         label = rep["label"]
@@ -1791,7 +2020,7 @@ class TeclaApp(ctk.CTk):
 
         # Tabla DP — top 50 términos, ordenados por terminologicidad
         self._eval_dp_tree.delete(*self._eval_dp_tree.get_children())
-        top_terms = sorted(self._all_results,
+        top_terms = sorted(self._results,
                            key=lambda t: t["terminologicity"], reverse=True)[:50]
         for i, t in enumerate(top_terms, 1):
             dp_val = dp_scores.get(t["lemma"], None)
@@ -1886,8 +2115,8 @@ class TeclaApp(ctk.CTk):
         fig2, ax2 = plt.subplots(figsize=(7, 5.5), facecolor=_BG_ROOT)
         fig2.subplots_adjust(top=0.88, bottom=0.12, left=0.28, right=0.97)
         _style(ax2)
-        if dp_scores and self._all_results:
-            top20 = sorted(self._all_results,
+        if dp_scores and self._results:
+            top20 = sorted(self._results,
                            key=lambda t: t["terminologicity"], reverse=True)[:20]
             top20 = [t for t in top20 if t["lemma"] in dp_scores]
             top20_sorted = sorted(top20, key=lambda t: dp_scores[t["lemma"]])
@@ -1916,8 +2145,8 @@ class TeclaApp(ctk.CTk):
         fig3, ax3 = plt.subplots(figsize=(6, 4.5), facecolor=_BG_ROOT)
         fig3.subplots_adjust(top=0.88, bottom=0.14, left=0.13, right=0.97)
         _style(ax3)
-        if self._all_results:
-            freqs = [t["frequency"] for t in self._all_results]
+        if self._results:
+            freqs = [t["frequency"] for t in self._results]
             buckets = {
                 "Hápax\n(f = 1)":    sum(1 for f in freqs if f == 1),
                 "Baja\n(f 2–5)":     sum(1 for f in freqs if 2 <= f <= 5),
@@ -2058,7 +2287,7 @@ class TeclaApp(ctk.CTk):
     # ── Keyness ──
 
     def _load_reference_corpus(self):
-        if not self._all_results:
+        if not self._results:
             messagebox.showinfo("TECLA", "Realiza una extracción primero.")
             return
         path = filedialog.askopenfilename(
@@ -2071,7 +2300,7 @@ class TeclaApp(ctk.CTk):
             from tecla.evaluation.corpus_metrics import load_reference_corpus, compute_keyness
             reference, ref_size = load_reference_corpus(path)
             corpus_size = sum(d["tokens"] for d in self._doc_stats)
-            rows = compute_keyness(self._all_results, reference, corpus_size, ref_size)
+            rows = compute_keyness(self._results, reference, corpus_size, ref_size)
             self._render_keyness(rows)
         except Exception as exc:
             messagebox.showerror("TECLA", f"Error cargando referencia:\n{exc}")
@@ -2121,7 +2350,7 @@ class TeclaApp(ctk.CTk):
             self._cov_clear_btn.configure(state="normal")
             self._cov_result_label.configure(text="")
             self._cov_detail_label.configure(text="Ejecuta la evaluación para calcular la cobertura.")
-            if self._all_results:
+            if self._results:
                 self._compute_and_render_coverage()
         except Exception as exc:
             messagebox.showerror("TECLA", f"Error leyendo la lista:\n{exc}")
@@ -2148,10 +2377,10 @@ class TeclaApp(ctk.CTk):
                 return
 
     def _compute_and_render_coverage(self):
-        if not self._gold_terms or not self._all_results:
+        if not self._gold_terms or not self._results:
             return
         from tecla.evaluation.term_eval import evaluate_extraction
-        result = evaluate_extraction(self._all_results, self._gold_terms, mode="exact")
+        result = evaluate_extraction(self._results, self._gold_terms, mode="exact")
         recall    = result["recall"]
         tp        = result["tp"]
         total_ref = tp + result["fn"]
@@ -2180,7 +2409,7 @@ class TeclaApp(ctk.CTk):
         if not path:
             return
         try:
-            out = Path(path) / "_tecla_revision.json"
+            out = self._output_dir() / "revision.json"
             out.write_text(
                 json.dumps({"version": 1, "terms": self._review_data}, ensure_ascii=False, indent=2),
                 encoding="utf-8",
@@ -2192,7 +2421,7 @@ class TeclaApp(ctk.CTk):
         path = self.corpus_path_var.get()
         if not path:
             return
-        f = Path(path) / "_tecla_revision.json"
+        f = self._user_file("revision.json", "_tecla_revision.json")
         if f.exists():
             try:
                 data = json.loads(f.read_text(encoding="utf-8"))
@@ -2208,7 +2437,7 @@ class TeclaApp(ctk.CTk):
         path = self.corpus_path_var.get()
         if not path:
             return
-        f = Path(path) / "_tecla_metadata.json"
+        f = self._user_file("metadatos_documentos.json", "_tecla_metadata.json")
         if f.exists():
             try:
                 self._corpus_metadata = json.loads(f.read_text(encoding="utf-8"))
@@ -2218,8 +2447,8 @@ class TeclaApp(ctk.CTk):
             self._corpus_metadata = {}
 
         # Los documentos sin metadatos guardados se completan con los que TECLA
-        # deduce del nombre del archivo (corpus/metadata.csv).
-        inferred = Path(path) / "corpus" / "metadata.csv"
+        # deduce del nombre del archivo (_tecla_output/metadata.csv).
+        inferred = self._output_dir() / "metadata.csv"
         if inferred.exists():
             try:
                 with open(inferred, encoding="utf-8", newline="") as fh:
@@ -2243,7 +2472,7 @@ class TeclaApp(ctk.CTk):
         if not path:
             return
         try:
-            out = Path(path) / "_tecla_metadata.json"
+            out = self._output_dir() / "metadatos_documentos.json"
             out.write_text(
                 json.dumps(self._corpus_metadata, ensure_ascii=False, indent=2),
                 encoding="utf-8",
@@ -2286,6 +2515,10 @@ class TeclaApp(ctk.CTk):
             "notas":  self._meta_notas.get("1.0", "end").strip(),
         }
         self._save_corpus_metadata()
+        try:
+            self._write_corpus_stats(self._corpus_stats_file())
+        except OSError:
+            pass
         # Actualizar la celda en el Treeview
         meta = self._corpus_metadata[doc_id]
         try:
@@ -2301,22 +2534,8 @@ class TeclaApp(ctk.CTk):
     # Callbacks del sidebar
     # ═══════════════════════════════════════════
 
-    def _toggle_advanced(self):
-        self._advanced_open = not self._advanced_open
-        if self._advanced_open:
-            self._adv_frame.pack(fill="x")
-            self._adv_toggle_btn.configure(text="▾  Opciones avanzadas")
-        else:
-            self._adv_frame.pack_forget()
-            self._adv_toggle_btn.configure(text="▸  Opciones avanzadas")
-
     def _on_preset_changed(self, value: str):
         self._preset_hint.configure(text=_PRESET_HINTS.get(value, ""))
-
-    def _on_max_len_changed(self, _=None):
-        val = int(round(self._max_len_slider.get()))
-        self.max_term_length_var.set(val)
-        self._max_len_label.configure(text=f"Tokens máx. por candidato: {val}")
 
     def _browse_corpus(self):
         folder = filedialog.askdirectory(title="Seleccionar directorio de trabajo")
@@ -2352,13 +2571,12 @@ class TeclaApp(ctk.CTk):
             return
         try:
             words = [w.strip() for w in Path(path).read_text(encoding="utf-8").splitlines() if w.strip()]
-            self._stoplist_entry.delete(0, "end")
-            self._stoplist_entry.insert(0, ", ".join(words))
+            self._stoplist_var.set(", ".join(words))
         except Exception as e:
             messagebox.showerror("TECLA", f"No se pudo leer el archivo:\n{e}")
 
     def _get_extra_stoplist(self) -> list:
-        raw = self._stoplist_entry.get().strip()
+        raw = self._stoplist_var.get().strip()
         return [w.strip() for w in raw.split(",") if w.strip()] if raw else []
 
     # ═══════════════════════════════════════════
@@ -2366,17 +2584,6 @@ class TeclaApp(ctk.CTk):
     # ═══════════════════════════════════════════
 
     def _on_filter_changed(self, _=None):
-        freq_val  = int(round(self._min_freq_slider.get()))
-        score_val = self._min_score_slider.get()
-        self._min_freq_label.configure(text=f"Frecuencia mínima: {freq_val}")
-        self._min_score_label.configure(text=f"Score mínimo: {score_val:.2f}")
-        if self._all_results:
-            self._apply_filters()
-
-    def _on_percentile_changed(self, value=None):
-        _PCT_MAP = {"—": 0, "p25": 25, "p50": 50, "p75": 75, "p90": 90}
-        pct = _PCT_MAP.get(value or self._percentile_seg.get(), 0)
-        self._percentile_var.set(pct)
         if self._all_results:
             self._apply_filters()
 
@@ -2390,12 +2597,14 @@ class TeclaApp(ctk.CTk):
         if self._all_results:
             self._apply_filters()
 
-    def _apply_filters(self):
-        min_freq  = int(round(self._min_freq_slider.get()))
-        min_score = self._min_score_slider.get()
+    def _apply_filters(self, notify: bool = True):
+        """Aplica los filtros: los CTs que los pasan son el resultado que usan
+        la tabla, la exportación, la evaluación y la revisión."""
+        min_freq  = self._min_freq_var.get()
+        min_score = self._min_score_var.get()
 
         # Percentile threshold: compute score cutoff from all results
-        pct = self._percentile_var.get()
+        pct = _PCT_MAP.get(self._percentile_choice.get(), 0)
         if pct > 0 and self._all_results:
             all_scores = sorted(t["terminologicity"] for t in self._all_results)
             idx = int(len(all_scores) * pct / 100)
@@ -2405,22 +2614,38 @@ class TeclaApp(ctk.CTk):
 
         effective_min_score = max(min_score, pct_threshold)
 
-        exclude_hapax = self._exclude_hapax_var.get()
         include_mono  = self._include_mono_var.get()
 
         filtered = [
             t for t in self._all_results
             if t["frequency"] >= min_freq
             and t["terminologicity"] >= effective_min_score
-            and not (exclude_hapax and t["frequency"] == 1)
             and not (not include_mono and len(t["lemma"].split()) == 1)
         ]
+        changed = [t["lemma"] for t in filtered] != [t["lemma"] for t in self._results]
+        self._results = filtered
+        filtered = list(filtered)
         sort_field = _SORT_KEY_MAP[self._sort_key_var.get()]
         reverse    = self._sort_reverse
         if sort_field == "term":
             reverse = not reverse
         filtered.sort(key=lambda t: t.get(sort_field) or 0, reverse=reverse)
         self._render_results(filtered)
+        if changed and notify:
+            if self._results_job is not None:
+                self.after_cancel(self._results_job)
+            self._results_job = self.after(400, self._on_results_changed)
+
+    def _on_results_changed(self):
+        """Lleva el resultado filtrado a la revisión, los gráficos y la evaluación."""
+        self._results_job = None
+        self._render_revision_list()
+        self._update_graficos()
+        if self._gold_terms:
+            self._compute_and_render_coverage()
+        if self._eval_done and not self._eval_running:
+            self._tabview.mark_done("Evaluación", False)
+            self._eval_btn.configure(text="Recalcular con los filtros actuales")
 
     def _toggle_col(self, col_id: str, orig_width: int, stretch: bool):
         visible = self._col_visible[col_id].get()
@@ -2538,6 +2763,12 @@ class TeclaApp(ctk.CTk):
                 extraction_options={
                     "multiword_only": not self._include_mono_var.get(),
                     "max_term_length": self.max_term_length_var.get(),
+                    "max_span_tokens": max(6, self.max_term_length_var.get()),
+                    # Se extraen todos los candidatos; la frecuencia mínima
+                    # se aplica como filtro, al momento
+                    "min_freq": 1,
+                    "drop_other_language": self._drop_other_var.get(),
+                    "other_language_stopwords": self._other_sw_var.get(),
                     "weights": _WEIGHT_PRESETS[self.weight_preset.get()],
                     "grammar_path": self.grammar_path_var.get() or None,
                     "extra_stop_terms": self._get_extra_stoplist() or None,
@@ -2598,10 +2829,23 @@ class TeclaApp(ctk.CTk):
             })
 
         # Tipos del corpus completo (no la suma de los tipos de cada documento)
-        self._corpus_types = len({t["lemma"] for doc in documents for t in doc["tokens"]})
+        corpus_lemmas = Counter(t["lemma"] for doc in documents for t in doc["tokens"])
+        self._corpus_types = len(corpus_lemmas)
+        corpus_words = [t["text"].lower() for doc in documents for t in doc["tokens"]
+                        if t["text"].isalpha()]
+        self._corpus_summary = {
+            "hapax_ratio": round(sum(1 for n in corpus_lemmas.values() if n == 1)
+                                 / len(corpus_lemmas), 4) if corpus_lemmas else 0.0,
+            "lexical_density": round(sum(1 for w in corpus_words if w not in stopwords)
+                                     / len(corpus_words), 4) if corpus_words else 0.0,
+        }
 
         self._load_corpus_metadata()
         self._render_corpus_tab()
+        try:
+            self._write_corpus_stats(self._corpus_stats_file())
+        except OSError:
+            pass
 
         # Auto-detectar lista de referencia si no hay una cargada
         if not self._gold_terms:
@@ -2615,20 +2859,10 @@ class TeclaApp(ctk.CTk):
 
     def _show_results(self, results):
         self._all_results = results
+        self._eval_done = False
         self._load_review_data()
+        self._apply_filters(notify=False)
         self._render_revision_list()
-
-        # Resetear filtros
-        self._min_freq_slider.set(1)
-        self._min_score_slider.set(0)
-        self._min_freq_label.configure(text="Frecuencia mínima: 1")
-        self._min_score_label.configure(text="Score mínimo: 0.00")
-        self._exclude_hapax_var.set(False)
-
-        self._percentile_var.set(0)
-        self._percentile_seg.set("—")
-
-        self._apply_filters()
         self._tabview.mark_done("Extracción", bool(results))
         self._update_graficos()
         if self._eval_btn is not None:
@@ -2638,9 +2872,10 @@ class TeclaApp(ctk.CTk):
         self._results_tree.delete(*self._results_tree.get_children())
         self._results_data = []
         self._all_results  = []
+        self._results      = []
         self._term_count_label.configure(text="")
-        self._ext_cards["cands"].configure(text="—")
-        self._ext_cards["shown"].configure(text="—")
+        for card in self._ext_cards.values():
+            card.configure(text="—")
         self._tabview.mark_done("Extracción", False)
         self._tabview.mark_done("Evaluación", False)
 
@@ -2657,6 +2892,12 @@ class TeclaApp(ctk.CTk):
 
         self._ext_cards["cands"].configure(text=_miles(total) if total else "—")
         self._ext_cards["shown"].configure(text=_miles(n) if total else "—")
+        multi  = sum(1 for t in results if len(t["lemma"].split()) > 1)
+        spread = sum(1 for t in results if t["doc_frequency"] >= 2)
+        self._ext_cards["multi"].configure(
+            text=f"{_miles(multi)} · {_miles(n - multi)}" if n else "—")
+        self._ext_cards["spread"].configure(
+            text=f"{100 * spread / n:.0f} %" if n else "—")
 
         if not results:
             return

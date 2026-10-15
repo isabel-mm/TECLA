@@ -1,6 +1,6 @@
 ---
 title: "TECLA: guía de uso"
-subtitle: "Versión 2.0.0"
+subtitle: "Versión 2.1.0"
 lang: es
 toc: true
 toc-depth: 2
@@ -101,7 +101,7 @@ Todo lo que TECLA genera se guarda dentro de la carpeta de trabajo (véase la se
 
 # La interfaz gráfica, paso a paso
 
-La ventana tiene dos zonas. A la izquierda, el **panel de configuración**: carpeta de trabajo, lengua, tipo de candidatos, perfil de puntuación, opciones avanzadas y el botón *Ejecutar*. A la derecha, las **cuatro pantallas** del flujo, a las que se accede por los pasos numerados de la parte superior: *Corpus*, *Extracción*, *Evaluación* y *Revisión*. El paso en curso aparece resaltado y los completados quedan marcados.
+La ventana tiene dos zonas. A la izquierda, el **panel de configuración**: carpeta de trabajo, lengua, tipo de candidatos, perfil de puntuación, ajustes de extracción y el botón *Ejecutar*. A la derecha, las **cuatro pantallas** del flujo, a las que se accede por los pasos numerados de la parte superior: *Corpus*, *Extracción*, *Evaluación* y *Revisión*. El paso en curso aparece resaltado y los completados quedan marcados.
 
 ![Pantalla inicial.](web/img/inicio.png){width=100%}
 
@@ -183,26 +183,30 @@ La revisión se guarda automáticamente en la carpeta de trabajo, de modo que pu
 
 ![Pantalla Revisión.](web/img/revision.png){width=100%}
 
-# Opciones avanzadas
+# Ajustes de extracción
 
-Se despliegan en el panel de la izquierda, bajo *Opciones avanzadas*:
+Se abren con el botón *Ajustes de extracción…* del panel de la izquierda, que resume debajo los ajustes cambiados. Cada opción tiene un signo de interrogación que explica, al pasar el ratón, para qué sirve. Los valores numéricos se escriben o se ajustan con los botones − y +.
 
+- **Filtros**, que se aplican al momento: frecuencia mínima (por defecto, 2; con 1 se incluyen los hápax), puntuación mínima del índice y percentil mínimo. Lo que queda tras los filtros es el resultado de la extracción: lo que muestran la tabla, la revisión y la evaluación, y lo que se exporta.
+- **Longitud máxima de los candidatos**, en palabras (por defecto, 5).
+- **Otra lengua en el corpus**, para textos con partes en la otra lengua, como los resúmenes en inglés de los artículos en español. Se pueden descartar los párrafos escritos en ella antes del análisis y excluir los candidatos que contengan sus palabras vacías.
 - **Stoplist adicional.** Palabras, separadas por comas, que no deben formar parte de ningún candidato. También puede cargarse desde un fichero de texto, con una palabra por línea.
-- **Gramática POS personalizada.** Por defecto se usa la gramática de patrones incluida, que cubre el español y el inglés. Puede sustituirse por un fichero `.yaml` propio, por ejemplo para adaptarla a un dominio.
-- **Longitud máxima de los candidatos**, en *tokens* (por defecto, 5).
-- **Filtros** sobre la lista ya extraída: frecuencia mínima, exclusión de los hápax, percentil mínimo y valor mínimo del índice. No repiten la extracción: solo cambian lo que se muestra y lo que se exporta.
+- **Gramática de patrones.** Por defecto se usa la gramática incluida, que cubre el español y el inglés. Puede sustituirse por un fichero `.yaml` propio, por ejemplo para adaptarla a un dominio.
+
+Salvo los filtros, los ajustes se aplican la próxima vez que se pulsa *Ejecutar*.
 
 # Qué archivos genera
 
-Todo queda dentro de la carpeta de trabajo:
+Todo queda en la carpeta `_tecla_output`, junto a la carpeta `corpus` y nunca dentro de ella, para que TECLA no lo lea como parte del corpus. Los textos, los metadatos deducidos y las estadísticas se regeneran en cada ejecución; el trabajo del usuario (metadatos corregidos y revisión) se conserva.
 
 | Archivo o carpeta | Contenido |
 |---|---|
-| `corpus/_tecla_txt/raw/` | Los documentos convertidos a texto, sin limpiar |
-| `corpus/_tecla_txt/clean/` | Los textos limpios, que son los que se analizan |
-| `corpus/metadata.csv` | Autor, año y título deducidos del nombre de cada archivo |
-| `_tecla_metadata.json` | Los metadatos corregidos a mano |
-| `_tecla_revision.json` | El estado y las notas de cada candidato revisado |
+| `_tecla_output/textos/raw/` | Los documentos convertidos a texto, sin limpiar |
+| `_tecla_output/textos/clean/` | Los textos limpios, que son los que se analizan |
+| `_tecla_output/metadata.csv` | Autor, año y título deducidos del nombre de cada archivo |
+| `_tecla_output/estadisticas_corpus.csv` | Las estadísticas de cada documento y del corpus |
+| `_tecla_output/metadatos_documentos.json` | Los metadatos corregidos a mano |
+| `_tecla_output/revision.json` | El estado y las notas de cada candidato revisado |
 | `_tecla_output/graphs/extraction/` | Gráficos de la extracción (PNG) |
 | `_tecla_output/graphs/evaluation/` | Gráficos de la evaluación (PNG) |
 | `_tecla_output/tecla_debug.txt` | Registro de tiempos de cada etapa, útil si un proceso va lento |
@@ -241,7 +245,7 @@ tecla extract --corpus mi_proyecto/corpus --lang es \
 ## Estadísticas del corpus
 
 ```bash
-tecla stats --corpus mi_proyecto/corpus/_tecla_txt/clean --lang es --output corpus.csv
+tecla stats --corpus mi_proyecto/_tecla_output/textos/clean --lang es --output corpus.csv
 ```
 
 Calcula, para cada texto, los *tokens*, los tipos, la relación entre ambos, la proporción de hápax, la densidad léxica, el número de oraciones y su longitud media.
@@ -305,7 +309,7 @@ Las operaciones de limpieza pueden activarse una a una mediante `cleaning_option
 
 **Aparecen palabras generales entre los primeros candidatos.** Es esperable: palabras como *texto* o *lengua* son muy frecuentes en cualquier corpus. Pueden añadirse a la *stoplist adicional*, o rechazarse en la pantalla de revisión.
 
-**Los PDF dan un texto con errores.** La conversión depende de cómo se generó el PDF. Los PDF escaneados, que son imágenes, no contienen texto y deben pasarse antes por un programa de reconocimiento de caracteres (OCR). El resultado de la conversión puede comprobarse en `corpus/_tecla_txt/clean/`.
+**Los PDF dan un texto con errores.** La conversión depende de cómo se generó el PDF. Los PDF escaneados, que son imágenes, no contienen texto y deben pasarse antes por un programa de reconocimiento de caracteres (OCR). El resultado de la conversión puede comprobarse en `_tecla_output/textos/clean/`.
 
 **El proceso tarda mucho.** El análisis lingüístico es proporcional al tamaño del corpus. El fichero `_tecla_output/tecla_debug.txt` indica cuánto tarda cada etapa.
 

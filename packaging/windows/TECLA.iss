@@ -3,7 +3,7 @@
 ;   ISCC packaging\windows\TECLA.iss
 
 #define AppName "TECLA"
-#define AppVersion "2.0.0"
+#define AppVersion "2.1.0"
 #define AppUrl "https://isabel-mm.github.io/TECLA/"
 
 [Setup]
@@ -22,7 +22,8 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 SourceDir=..\..
 OutputDir=dist
-OutputBaseFilename=TECLA-{#AppVersion}-setup
+; Sin versión en el nombre: la web enlaza a releases/latest/download/
+OutputBaseFilename=TECLA-instalador-windows-setup
 SetupIconFile=gui\assets\tecla.ico
 UninstallDisplayIcon={app}\TECLA.exe
 LicenseFile=LICENSE
