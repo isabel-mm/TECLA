@@ -14,6 +14,7 @@ from tecla.extractor.statistical_filter import (
     compute_terminologicity,
 )
 from tecla.extractor.tbx_export import export_tbx
+from tecla.extractor.stop_terms import is_stop_term
 
 
 # ---------------------------------------------------------------------------
@@ -196,3 +197,16 @@ class TestExportTBX:
         output = tmp_path / "empty.tbx"
         export_tbx([], str(output), language="es")
         assert output.exists()
+
+
+class TestStopTerms:
+    def test_spanish_entry_matches_accent_free_lemma(self):
+        # the lemma normaliser strips accents; "análisis" must still match
+        assert is_stop_term("analisis", "es")
+        assert is_stop_term("Análisis", "es")
+
+    def test_section_prefix_without_accent(self):
+        assert is_stop_term("capitulo segundo", "es")
+
+    def test_domain_term_is_kept(self):
+        assert not is_stop_term("corpus paralelo", "es")

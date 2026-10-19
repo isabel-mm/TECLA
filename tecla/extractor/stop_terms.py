@@ -20,10 +20,18 @@ of ``is_stop_term()``.
 
 from __future__ import annotations
 import re
+import unicodedata
 from pathlib import Path
 from typing import Set
 
 _RESOURCES_DIR = Path(__file__).parent / "resources"
+
+
+def _fold(text: str) -> str:
+    """Lowercase and strip diacritics, so that "análisis" matches the
+    accent-free lemma "analisis" produced by the lemma normaliser."""
+    text = unicodedata.normalize("NFKD", text.lower())
+    return "".join(c for c in text if not unicodedata.combining(c)).strip()
 
 
 def _load_txt_list(filename: str) -> frozenset:
@@ -33,7 +41,7 @@ def _load_txt_list(filename: str) -> frozenset:
         return frozenset()
     with open(path, encoding="utf-8") as f:
         return frozenset(
-            line.strip().lower()
+            _fold(line)
             for line in f
             if line.strip() and not line.startswith("#")
         )
@@ -124,7 +132,7 @@ _ES_CORE: frozenset[str] = frozenset({
     "aprendiz de lengua", "aprendizaje de lengua", "enseñanza de lengua",
 })
 
-_ES: frozenset[str] = _ES_CORE | _load_txt_list("stop_es.txt")
+_ES: frozenset[str] = frozenset(_fold(e) for e in _ES_CORE) | _load_txt_list("stop_es.txt")
 
 _BY_LANG: dict[str, frozenset[str]] = {
     "en": _EN,
@@ -135,7 +143,7 @@ _BY_LANG: dict[str, frozenset[str]] = {
 # Match lemmas that *start* or *end* with highly generic heads.
 _STOP_PREFIX_RE = re.compile(
     r"^(?:figure|table|appendix|annex|section|chapter|example|note|footnote"
-    r"|figura|tabla|apéndice|anexo|sección|capítulo|ejemplo|nota)\b",
+    r"|figura|tabla|apendice|anexo|seccion|capitulo|ejemplo|nota)\b",
     re.IGNORECASE,
 )
 
@@ -154,11 +162,11 @@ def is_stop_term(
     language : ISO 639-1 code ("en" / "es")
     extra    : optional caller-supplied set of additional stop-terms
     """
-    lemma = lemma.lower()
+    lemma = _fold(lemma)
     lang_set = _BY_LANG.get(language, frozenset())
     if lemma in lang_set:
         return True
-    if extra and lemma in extra:
+    if extra and lemma in {_fold(e) for e in extra}:
         return True
     if _STOP_PREFIX_RE.match(lemma):
         return True

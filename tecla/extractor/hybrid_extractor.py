@@ -21,7 +21,7 @@ from tqdm import tqdm
 from .linguistic_filter import extract_candidates
 from .statistical_filter import compute_statistics
 from .tbx_export import export_tbx
-from .stop_terms import is_stop_term
+from .stop_terms import _fold, is_stop_term
 
 
 TermLength = Union[int, Tuple[int, Optional[int]]]
@@ -265,12 +265,12 @@ class HybridTermExtractor:
         either in its surface form or in its lemma.
         """
         extra_seqs = [
-            tuple(entry.lower().split()) for entry in (extra or []) if entry.strip()
+            tuple(_fold(entry).split()) for entry in (extra or []) if entry.strip()
         ]
 
         def _contains_extra(term: Dict[str, Any]) -> bool:
             for form in (term["term"], term.get("lemma", "")):
-                tokens = tuple(form.lower().split())
+                tokens = tuple(_fold(form).split())
                 for seq in extra_seqs:
                     n = len(seq)
                     if any(tokens[i:i + n] == seq for i in range(len(tokens) - n + 1)):
@@ -280,6 +280,9 @@ class HybridTermExtractor:
         return [
             t for t in terms
             if not is_stop_term(t.get("lemma", t["term"]), language)
+            # the surface form too: the lemmatiser may alter gender or
+            # number ("buena parte" -> "buen parte")
+            and not is_stop_term(t["term"], language)
             and not _contains_extra(t)
         ]
 
