@@ -118,4 +118,14 @@ grupo de investigación
 tesis doctoral
 tesis de licenciatura
 forma distinta
-muestra analizada
+muestra analizada# Sustantivos generales del discurso académico que el filtro de categorías deja pasar
+parte
+punto
+modo
+hecho
+cosa
+manera
+vez
+lado
+# resto de «es decir» cuando el etiquetador toma «es» por sustantivo
+decir

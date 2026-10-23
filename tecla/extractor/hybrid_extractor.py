@@ -14,6 +14,7 @@ The output is a clean terminological inventory
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple, Union
 import csv
+import re
 from collections import defaultdict, Counter
 
 from tqdm import tqdm
@@ -29,6 +30,28 @@ TermLength = Union[int, Tuple[int, Optional[int]]]
 
 
 SUPPORTED_LANGUAGES = {"en", "es"}
+
+# Abbreviations with a full stop: one to three letters ("p.", "ej.", "cf.").
+_ABBREVIATION_RE = re.compile(r"^[^\W\d_]{1,3}\.$")
+# Well-formed Roman numerals ("XVII", "IV"); "XML" or "LDC" do not match.
+_ROMAN_RE = re.compile(
+    r"^(?=[MDCLXVI])M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$"
+)
+# Words of bibliographic references and citations.
+_CITATION_TOKENS = frozenset({
+    "cf", "op", "cit", "ibid", "ibidem", "id", "et", "al", "vs", "pp",
+    "vol", "vols", "ed", "eds", "trad", "coord", "coords", "apud",
+})
+# Words that make a capitalised sequence the name of a resource rather than
+# of a person ("British National Corpus", "Penn Treebank").
+_RESOURCE_WORDS = frozenset({
+    "corpus", "corpora", "bank", "treebank", "database", "dictionary",
+    "diccionario", "project", "proyecto", "toolkit", "tools", "net",
+    "wordnet", "consortium", "archive", "archivo", "atlas", "base",
+})
+_YEAR_RE = re.compile(r"^(1[5-9]|20)\d\d[a-z]?$")
+_INITIAL_RE = re.compile(r"^(?:[A-ZÁÉÍÓÚÑ]\.?|Ma\.?|Mª)$")
+_NAME_PARTICLES = frozenset({"de", "del", "la", "van", "von", "y", "and", "&", "da", "di"})
 
 def display_variants(term: Dict[str, Any]) -> List[str]:
     """
@@ -160,6 +183,12 @@ class HybridTermExtractor:
         if not consolidated:
             return []
 
+        # 5b. Remove names of cited authors
+        consolidated = self._filter_person_names(consolidated, documents)
+
+        if not consolidated:
+            return []
+
         # 6. Frequency / document-frequency thresholds
         if min_freq > 1 or min_doc_freq > 1:
             consolidated = [
@@ -241,6 +270,19 @@ class HybridTermExtractor:
             ):
                 continue
 
+            # --- Numbers, abbreviations and bibliographic markers ---
+            # years and page numbers ("1985", "B2"), abbreviations ending
+            # in a full stop ("p.", "ej.", "a. C."), Roman numerals
+            # ("siglo XVII") and citation words ("cf", "op", "et al").
+            if any(
+                any(c.isdigit() for c in t)
+                or _ABBREVIATION_RE.match(t)
+                or (len(t) > 1 and _ROMAN_RE.match(t))
+                or t.lower().strip(".") in _CITATION_TOKENS
+                for t in tokens
+            ):
+                continue
+
             # --- Single-document noise filter ---
             if term.get("doc_frequency", 1) == 1 and term.get("frequency", 0) > max_single_doc_freq:
                 continue
@@ -248,6 +290,71 @@ class HybridTermExtractor:
             cleaned.append(term)
 
         return cleaned
+
+    @staticmethod
+    def _cited_names(documents: List[Dict[str, Any]]) -> set:
+        """
+        Collect the capitalised words that occur in author-year citations
+        ("Casas Gómez (2006)", "(Calero Fernández, 1999)", "Coseriu 1977"):
+        the run of capitalised tokens immediately before a year, allowing
+        an opening parenthesis, a comma or "et al." in between.
+        """
+        names: set = set()
+        for doc in documents:
+            sentences = doc.get("sentences") or [doc.get("tokens", [])]
+            for sent in sentences:
+                texts = [tok.get("text", "") for tok in sent]
+                for i, t in enumerate(texts):
+                    if not _YEAR_RE.match(t):
+                        continue
+                    j = i - 1
+                    while j >= 0 and texts[j] in {"(", ",", "al", "al.", "et", "."}:
+                        j -= 1
+                    run = []
+                    while j >= 0:
+                        w = texts[j]
+                        if w[:1].isupper() or _INITIAL_RE.match(w):
+                            run.append(w)
+                        elif w.lower() in _NAME_PARTICLES and run:
+                            pass
+                        else:
+                            break
+                        j -= 1
+                    # an acronym alone (BNC, CREA) is not a personal name
+                    if run and not (len(run) == 1 and run[0].isupper()):
+                        names.update(w for w in run if not _INITIAL_RE.match(w))
+        return names
+
+    def _filter_person_names(
+        self,
+        terms: List[Dict[str, Any]],
+        documents: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """
+        Remove candidates that are names of cited authors: sequences made
+        only of capitalised words and initials whose last word occurs in an
+        author-year citation in the corpus ("Casas Gómez", "M. Casas Gómez",
+        "Ángeles Calero"). Acronyms and names of resources ("British
+        National Corpus") are kept.
+        """
+        names = self._cited_names(documents)
+        if not names:
+            return terms
+
+        def _is_person(term: Dict[str, Any]) -> bool:
+            tokens = [t for t in term["term"].split() if t.lower() not in _NAME_PARTICLES]
+            if not tokens:
+                return False
+            if any(not (t[:1].isupper() or _INITIAL_RE.match(t)) for t in tokens):
+                return False
+            if any(t.isupper() and len(t) > 1 for t in tokens):
+                return False
+            if any(t.lower() in _RESOURCE_WORDS for t in tokens):
+                return False
+            words = [t for t in tokens if not _INITIAL_RE.match(t)]
+            return bool(words) and words[-1] in names
+
+        return [t for t in terms if not _is_person(t)]
 
     def _filter_stop_terms(
         self,

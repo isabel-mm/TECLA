@@ -109,3 +109,13 @@ appendix
 introduction
 conclusion
 references
+# General nouns of academic discourse that pass the POS filter
+way
+fact
+one
+thing
+lot
+part
+point
+sort
+matter

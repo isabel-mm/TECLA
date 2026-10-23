@@ -1,5 +1,15 @@
 # Cambios en TECLA
 
+## 2.1.1
+
+### Correcciones
+
+- **Formas verbales tomadas por términos.** El etiquetador analiza a veces como sustantivo una forma verbal, como *es* en *es decir*, y TECLA la proponía como candidato. Las formas más frecuentes de *ser*, *estar* y *haber* (y de *be*, *have* y *do* en inglés) ya no pueden formar parte de un candidato.
+- **Números, abreviaturas y numerales romanos.** Se descartan los candidatos que contienen cifras (años, páginas), abreviaturas con punto (*p.*, *ej.*, *a. C.*), numerales romanos (*siglo XVII*) o palabras propias de las referencias bibliográficas (*cf*, *op. cit.*, *et al.*, *vol.*).
+- **Nombres de autores citados.** TECLA reconoce en el propio corpus las citas autor-año, como *Casas Gómez (2006)*, y descarta los candidatos formados solo por esos nombres (*Casas Gómez*, *M. Casas Gómez*). Las siglas y los nombres de recursos, como *British National Corpus*, se conservan.
+- **Encabezados y pies de página repetidos.** La limpieza elimina las líneas cortas que se repiten muchas veces en un mismo documento, como el título de un libro o el nombre de su autor en cada página. Además de candidatos falsos, inflaban la frecuencia de las palabras que contienen.
+- **Vocabulario académico general.** La lista de exclusión incluye ahora sustantivos generales que el filtro de categorías dejaba pasar: *parte*, *punto*, *modo*, *hecho*, *cosa*, *manera*, *vez*, *lado* y, en inglés, *way*, *fact*, *one*, *thing*, *lot*, *part*, *point*, *sort* y *matter*.
+
 ## 2.1.0
 
 ### Novedades

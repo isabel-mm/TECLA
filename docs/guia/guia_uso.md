@@ -1,6 +1,6 @@
 ---
 title: "TECLA: guía de uso"
-subtitle: "Versión 2.1.0"
+subtitle: "Versión 2.1.1"
 lang: es
 toc: true
 toc-depth: 2

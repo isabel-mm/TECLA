@@ -55,6 +55,8 @@ _FUNCTION_LEMMAS: Dict[str, frozenset] = {
         "not", "no", "nor",
         "be", "have", "do", "will", "would", "can", "could",
         "may", "might", "shall", "should", "must",
+        # inflected forms that the tagger occasionally labels as nouns
+        "is", "are", "was", "were", "has", "had", "does", "did",
     }),
     "es": frozenset({
         "el", "la", "los", "las", "un", "una", "unos", "unas",
@@ -69,6 +71,10 @@ _FUNCTION_LEMMAS: Dict[str, frozenset] = {
         "cada", "cualquier", "cualquiera",
         "otro", "otra", "mismo", "misma",
         "no", "ni", "ser", "estar", "haber", "tener",
+        # formas flexionadas que el etiquetador a veces toma por sustantivos
+        # (la de "es decir", por ejemplo)
+        "es", "son", "era", "eran", "fue", "fueron", "sea", "sean",
+        "ha", "han", "hay", "está", "están",
     }),
 }
 

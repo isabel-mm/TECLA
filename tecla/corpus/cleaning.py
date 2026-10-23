@@ -633,6 +633,33 @@ def remove_statistical_lines(text: str, threshold: float = 0.75) -> str:
 # MASTER CLEANING FUNCTION
 # ---------------------------------------------------------------------------
 
+def remove_running_headers(text: str, min_repeats: int = 5, max_words: int = 12) -> str:
+    """
+    Remove running headers and footers: short lines that repeat, apart from
+    page numbers, many times in the same document (the title of a book or
+    the name of its author on every page). Left in the text, they produce
+    false candidates that join the end of the header with the next line.
+    """
+    import re as _re
+    from collections import Counter as _Counter
+
+    def _key(line: str) -> str:
+        return _re.sub(r"[\d_\W]+", " ", line).strip().lower()
+
+    lines = text.split("\n")
+    counts = _Counter(
+        _key(l) for l in lines
+        if l.strip() and len(l.split()) <= max_words
+    )
+    repeated = {k for k, n in counts.items() if k and n >= min_repeats}
+    if not repeated:
+        return text
+    return "\n".join(
+        l for l in lines
+        if not (len(l.split()) <= max_words and _key(l) in repeated)
+    )
+
+
 def clean_text(
     text,
     structure=False,
@@ -650,6 +677,7 @@ def clean_text(
     remove_inline_citations_flag=False,
     remove_journal_metadata_flag=False,
     remove_statistical_lines_flag=False,
+    remove_running_headers_flag=True,
     language="en",
 ):
     """
@@ -665,6 +693,7 @@ def clean_text(
     remove_inline_citations_flag    : Elimina marcadores de cita numérica [1], [2,3].
     remove_journal_metadata_flag    : Elimina líneas de volumen/número/páginas de revista.
     remove_statistical_lines_flag   : Elimina líneas mayoritariamente numéricas (tablas, stats).
+    remove_running_headers_flag     : Elimina encabezados y pies de página repetidos (activado por defecto).
     remove_section_headers_flag     : Elimina líneas que son solo un título de sección.
     remove_keyword_lines_flag       : Elimina líneas "Keywords: …" / "Palabras clave: …".
     remove_bibliography_flag        : Elimina la sección de referencias/bibliografía.
@@ -676,6 +705,10 @@ def clean_text(
     # 1. Reunir guiones de fin de línea (antes de cualquier otra operación)
     if rejoin_hyphens_flag:
         cleaned = rejoin_hyphenated_words(cleaned)
+
+    # 1b. Encabezados y pies de página repetidos
+    if remove_running_headers_flag:
+        cleaned = remove_running_headers(cleaned)
 
     # 2. Eliminar marcadores de cita inline [1], [2,3]
     if remove_inline_citations_flag:
