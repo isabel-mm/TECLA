@@ -2335,7 +2335,7 @@ class TeclaApp(ctk.CTk):
             font=ctk.CTkFont(size=10), text_color=_TEXT_MUTED,
             anchor="w", justify="left",
         )
-        self._eval_components_label.pack(fill="x", pady=(4, 0))
+        # (los componentes se muestran en la tabla «Resultados por prueba»)
 
         # Botón calcular representatividad (fast eval + bootstrap)
         btn_row = ctk.CTkFrame(score_card, fg_color="transparent")
@@ -2353,39 +2353,7 @@ class TeclaApp(ctk.CTk):
             btn_row, text="",
             font=ctk.CTkFont(size=11), text_color=_TEXT_MUTED,
         )
-        self._eval_stability_label.pack(side="left", padx=(12, 0))
-
-        # ── Tabla de resultados por prueba ──
-        tests_card = ctk.CTkFrame(left_col, fg_color=_BG_CARD, corner_radius=10,
-                                  border_width=1, border_color=_BORDER)
-        tests_card.pack(fill="x", pady=(0, 8))
-        tests_hdr = ctk.CTkFrame(tests_card, fg_color="transparent")
-        tests_hdr.pack(fill="x", padx=14, pady=(10, 4))
-        ctk.CTkLabel(tests_hdr, text="Resultados por prueba",
-                     font=ctk.CTkFont(size=10, weight="bold"),
-                     text_color=_TEXT_MUTED).pack(side="left")
-        _help_icon(tests_hdr, _EVAL_TESTS_HELP).pack(side="left", padx=(4, 0))
-        self._eval_csv_btn = ctk.CTkButton(
-            tests_hdr, text="⬇  CSV", width=64, height=22,
-            fg_color="transparent", hover_color=_BG_CARD2,
-            border_width=1, border_color=_ACCENT, text_color=_ACCENT,
-            font=ctk.CTkFont(size=10), state="disabled",
-            command=self._export_eval_csv)
-        self._eval_csv_btn.pack(side="right")
-        tests_wrap = tk.Frame(tests_card, bg=_BG_CARD)
-        tests_wrap.pack(fill="x", padx=10, pady=(0, 10))
-        self._eval_tests_tree = ttk.Treeview(
-            tests_wrap, style="TECLA.Treeview", columns=("prueba", "valor", "puntos"),
-            show="headings", selectmode="none", height=4)
-        for cid, heading, width, anchor in [("prueba", "Prueba", 92, "w"),
-                                            ("valor", "Valor", 120, "w"),
-                                            ("puntos", "Puntos", 50, "e")]:
-            self._eval_tests_tree.heading(cid, text=heading)
-            self._eval_tests_tree.column(cid, width=width, minwidth=width, stretch=False,
-                                         anchor=anchor)
-        self._eval_tests_tree.tag_configure("odd", background=_ROW_ODD, foreground=_TEXT)
-        self._eval_tests_tree.tag_configure("even", background=_ROW_EVEN, foreground=_TEXT)
-        self._eval_tests_tree.pack(fill="x")
+        # (la estabilidad se muestra en la tabla «Resultados por prueba»)
 
         # ── Tarjeta de cobertura externa ──────────────────────────────────
         cov_card = ctk.CTkFrame(left_col, fg_color=_BG_CARD, corner_radius=10,
@@ -2452,6 +2420,38 @@ class TeclaApp(ctk.CTk):
             anchor="w", justify="left", wraplength=265,
         )
         self._cov_detail_label.pack(fill="x", pady=(2, 8))
+
+        # ── Tabla de resultados por prueba ──
+        tests_card = ctk.CTkFrame(mid_col, fg_color=_BG_CARD, corner_radius=10,
+                                  border_width=1, border_color=_BORDER)
+        tests_card.pack(fill="x", pady=(0, 8))
+        tests_hdr = ctk.CTkFrame(tests_card, fg_color="transparent")
+        tests_hdr.pack(fill="x", padx=14, pady=(10, 4))
+        ctk.CTkLabel(tests_hdr, text="Resultados por prueba",
+                     font=ctk.CTkFont(size=10, weight="bold"),
+                     text_color=_TEXT_MUTED).pack(side="left")
+        _help_icon(tests_hdr, _EVAL_TESTS_HELP).pack(side="left", padx=(4, 0))
+        self._eval_csv_btn = ctk.CTkButton(
+            tests_hdr, text="⬇  CSV", width=64, height=22,
+            fg_color="transparent", hover_color=_BG_CARD2,
+            border_width=1, border_color=_ACCENT, text_color=_ACCENT,
+            font=ctk.CTkFont(size=10), state="disabled",
+            command=self._export_eval_csv)
+        self._eval_csv_btn.pack(side="right")
+        tests_wrap = tk.Frame(tests_card, bg=_BG_CARD)
+        tests_wrap.pack(fill="x", padx=10, pady=(0, 10))
+        self._eval_tests_tree = ttk.Treeview(
+            tests_wrap, style="TECLA.Treeview", columns=("prueba", "valor", "puntos"),
+            show="headings", selectmode="none", height=4)
+        for cid, heading, width, anchor in [("prueba", "Prueba", 110, "w"),
+                                            ("valor", "Valor", 200, "w"),
+                                            ("puntos", "Puntos (0–100)", 110, "e")]:
+            self._eval_tests_tree.heading(cid, text=heading)
+            self._eval_tests_tree.column(cid, width=width, minwidth=width, stretch=cid == "valor",
+                                         anchor=anchor)
+        self._eval_tests_tree.tag_configure("odd", background=_ROW_ODD, foreground=_TEXT)
+        self._eval_tests_tree.tag_configure("even", background=_ROW_EVEN, foreground=_TEXT)
+        self._eval_tests_tree.pack(fill="x")
 
         # ── Columna central: tabla DP ──
         dp_card = ctk.CTkFrame(mid_col, fg_color=_BG_CARD, corner_radius=8,
@@ -2638,7 +2638,7 @@ class TeclaApp(ctk.CTk):
             dp_str = f"{dp_val:.3f}" if dp_val is not None else "—"
             tag = "odd" if i % 2 else "even"
             self._eval_dp_tree.insert("", "end", tags=(tag,), values=(
-                f"{i}.", t["lemma"], t["frequency"], t["doc_frequency"], dp_str,
+                f"{i}.", display_form(t), t["frequency"], t["doc_frequency"], dp_str,
             ))
 
         # Gráficos
@@ -3600,7 +3600,7 @@ class TeclaApp(ctk.CTk):
         for i, t in enumerate(results, 1):
             filled = max(0, min(10, round(10 * t["terminologicity"] / top)))
             pats     = "/".join(t.get("patterns", []))
-            var_str  = variants_summary(t).replace("También ", "") or "—"
+            var_str  = variants_summary(t, short=True) or "—"
             tag      = "odd" if i % 2 == 1 else "even"
             self._results_tree.insert("", "end", iid=str(i - 1),
                 values=(

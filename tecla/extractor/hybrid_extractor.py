@@ -189,7 +189,10 @@ def display_form(term: Dict[str, Any]) -> str:
     total = lambda k: sum(freq.get(f, 0) for f in groups[k])
     keys = list(groups)                      # ya en orden de frecuencia
     singular = [k for k in keys if not _is_plural_form(lemma, k)]
-    best = max(singular or keys, key=lambda k: (total(k), -keys.index(k)))
+    top = max(keys, key=lambda k: (total(k), -keys.index(k)))
+    # el singular solo se prefiere si se usa de verdad (no *datum* frente a *data*)
+    sing = max(singular, key=lambda k: (total(k), -keys.index(k))) if singular else None
+    best = sing if sing and (not freq or total(sing) >= 0.2 * total(top)) else top
     lower = [f for f in groups[best] if f == f.lower()]
     return lower[0] if lower else groups[best][0]
 
@@ -213,9 +216,18 @@ def describe_variants(term: Dict[str, Any]) -> Dict[str, Any]:
     return {"kinds": sorted(kinds, key=order.index), "others": others}
 
 
-def variants_summary(term: Dict[str, Any]) -> str:
-    """One-line description, e.g. «También en plural y en mayúsculas · otras formas: X»."""
+def variants_summary(term: Dict[str, Any], short: bool = False) -> str:
+    """One-line description, e.g. «También en plural y en mayúsculas · otras formas: X».
+    With ``short``, a compact version for tables: «plural · mayúsculas · +1 forma»."""
     d = describe_variants(term)
+    if short:
+        abbr = {"plural": "plural", "ortográfica": "otra grafía", "sin tilde": "sin tilde",
+                "mayúscula inicial": "mayúsc. inicial", "mayúsculas": "mayúsculas"}
+        parts = [abbr[k] for k in d["kinds"]]
+        if d["others"]:
+            n = len(d["others"])
+            parts.append(f"+{n} forma{'s' if n > 1 else ''}")
+        return " · ".join(parts)
     names = {"plural": "en plural", "ortográfica": "con otra grafía (guion o espacio)",
              "sin tilde": "sin tilde",
              "mayúscula inicial": "con mayúscula inicial", "mayúsculas": "en mayúsculas"}
