@@ -134,6 +134,6 @@ app = BUNDLE(
     name="TECLA.app",
     icon=str(PROJECT_ROOT / "gui" / "assets" / "tecla.icns"),
     bundle_identifier="com.tecla.app",
-    version="2.1.0",
+    version="2.1.1",
     info_plist={"NSHighResolutionCapable": True},
 )

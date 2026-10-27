@@ -2,6 +2,8 @@
 
 ## 2.1.1
 
+Para actualizar no hace falta desinstalar la versión anterior: basta con instalar la nueva encima. En macOS, se arrastra TECLA a Aplicaciones y se elige *Reemplazar*. Los proyectos, los resultados y la revisión se conservan, porque se guardan en la carpeta de trabajo y no en la aplicación. Al volver a ejecutar la extracción sobre un corpus ya analizado, los filtros nuevos pueden dar algunos candidatos menos.
+
 ### Correcciones
 
 - **Formas verbales tomadas por términos.** El etiquetador analiza a veces como sustantivo una forma verbal, como *es* en *es decir*, y TECLA la proponía como candidato. Las formas más frecuentes de *ser*, *estar* y *haber* (y de *be*, *have* y *do* en inglés) ya no pueden formar parte de un candidato.

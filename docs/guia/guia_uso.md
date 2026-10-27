@@ -72,6 +72,21 @@ Basta con instalar el de la lengua con la que se vaya a trabajar. Si un modelo n
 python gui/tecla_gui.py
 ```
 
+## Actualizar a una versión nueva
+
+Para actualizar TECLA no hace falta desinstalar la versión anterior: la nueva se instala encima.
+
+- **Con el instalador de Windows**, basta con descargar y ejecutar el instalador nuevo, con TECLA cerrada. El instalador reconoce la versión anterior y la sustituye en la misma carpeta.
+- **En macOS**, se abre el archivo descargado, se arrastra TECLA a la carpeta Aplicaciones y se elige *Reemplazar* cuando el sistema pregunta si se quiere sustituir la que ya existe.
+- **Si se instaló desde el código**, basta con actualizarlo desde la carpeta de TECLA:
+
+```bash
+git pull
+pip install -e .
+```
+
+La actualización no afecta al trabajo hecho: los textos, los resultados, la revisión y los metadatos se guardan en la carpeta de trabajo (`_tecla_output`), no en la aplicación, y se conservan. Una versión nueva puede cambiar la lista de candidatos al volver a ejecutar la extracción, por ejemplo si incorpora filtros nuevos; los cambios de cada versión se recogen en el archivo `CHANGELOG.md` del repositorio.
+
 ## Probar TECLA sin instalar nada
 
 El repositorio incluye un cuaderno de demostración para Google Colab, que ejecuta la extracción y la evaluación sobre unos pocos textos desde el navegador:

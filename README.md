@@ -106,7 +106,7 @@ igualmente».
 
 ### Publicar una versión
 
-Al crear y subir una etiqueta `v*` (por ejemplo, `v2.1.0`), GitHub Actions
+Al crear y subir una etiqueta `v*` (por ejemplo, `v2.1.1`), GitHub Actions
 compila el instalador de Windows y la imagen de disco de macOS, con los
 modelos incluidos, y los adjunta a una release para descargar. También se
 puede ejecutar el workflow manualmente desde la pestaña **Actions**; en ese
