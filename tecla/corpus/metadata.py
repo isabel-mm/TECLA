@@ -144,6 +144,24 @@ def infer_metadata(filename: str) -> dict:
     name = os.path.splitext(base)[0]
     name = _clean_name(name)
 
+    # ── 0. «Autor_Año_Título»: lo que va antes del año es el autor, entero ──
+    # (apellidos compuestos, varios autores, «(coords.)»…)
+    conv = re.match(r"^(?P<author>[^_]+?)_(?P<year>(?:19|20|21)\d{2})[a-z]?_(?P<title>.+)$", name)
+    if conv and re.match(r"[A-ZÁÉÍÓÚÑ]", conv["author"].strip()):
+        title = _build_title(conv["title"])
+        source = None
+        for seg in name.split("_"):
+            if seg.strip() in _KNOWN_SOURCES:
+                source = _KNOWN_SOURCES[seg.strip()]
+                break
+        return {
+            "author":    conv["author"].strip(),
+            "year":      int(conv["year"]),
+            "title":     title,
+            "text_type": _infer_text_type(title, source),
+            "source":    source,
+        }
+
     # ── 1. Find year ──────────────────────────────────────────────────────
     year_match = _YEAR_RE_STR.search(name)
     year       = int(year_match.group(1)) if year_match else None

@@ -70,6 +70,164 @@ def display_variants(term: Dict[str, Any]) -> List[str]:
     return forms
 
 
+def _strip_accents(text: str) -> str:
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", text)
+                   if unicodedata.category(c) != "Mn")
+
+
+_INVARIABLE_ENDINGS = ("us", "is", "ss", "xis")   # corpus, análisis, class, sintaxis
+
+
+def _fold_word(word: str, language: str, modifier: bool) -> str:
+    """Accent-free, lower-case word without number (and, for Spanish
+    modifiers, without gender), used only to compare lemmas."""
+    w = _strip_accents(word.lower())
+    if len(w) > 3 and not w.endswith(_INVARIABLE_ENDINGS):
+        if w.endswith("s"):
+            w = w[:-1]
+    # -es tras consonante (unidad-es, accion-es, red-es): se quita la -e también
+    # en singular (nombre / nombres → nombr), para que las dos formas coincidan;
+    # no tras s (base / bases, clase / clases)
+    if language == "es" and w.endswith("e") and len(w) > 3 and w[-2] in "dlnrjyz":
+        w = w[:-1]
+    if language == "es" and modifier and len(w) > 3 and w[-1] in "ao":
+        w = w[:-1] + "o"
+    return w
+
+
+def lemma_key(lemma: str, language: str = "es") -> str:
+    """
+    Key that groups the lemmas of one and the same candidate when the
+    lemmatiser assigns them inconsistently: differences in accents, in number
+    or, in Spanish, in the gender of the modifiers (*unidad terminológica* /
+    *unidad terminológico*, *ficha terminológica* / *ficha terminologica*).
+    In Spanish the head noun comes first, so only the following words are
+    gender-normalised; in English, only number is.
+    """
+    words = lemma.split()
+    return " ".join(_fold_word(w, language, modifier=(language == "es" and i > 0))
+                    for i, w in enumerate(words))
+
+
+_IRREGULAR_PLURALS = {"corpus": {"corpora", "corpuses"}, "datum": {"data"},
+                      "analysis": {"analyses"}, "index": {"indices", "indexes"},
+                      "criterion": {"criteria"}, "phenomenon": {"phenomena"},
+                      "thesis": {"theses"}, "hypothesis": {"hypotheses"}}
+
+
+def _is_plural_of(word: str, base: str) -> bool:
+    """Whether ``word`` is a regular (Spanish or English) plural of ``base``."""
+    w, b = _strip_accents(word.lower()), _strip_accents(base.lower())
+    if w == b:
+        return False
+    if w in _IRREGULAR_PLURALS.get(b, ()):
+        return True
+    return w in {b + "s", b + "es", b[:-1] + "ces", b[:-1] + "ies"}
+
+
+def classify_variant(lemma: str, form: str) -> str:
+    """
+    Kind of variant a surface form is with respect to the candidate's lemma:
+    ``plural``, ``mayúscula inicial``, ``mayúsculas``, ``ortográfica`` (hyphen
+    or spacing) or ``otra`` (any other form, worth showing as it is).
+    Several kinds can combine (a plural in capitals counts as both); the
+    returned value is a «+»-joined label, e.g. ``plural+mayúsculas``.
+    """
+    kinds = []
+    if form.isupper() and not lemma.isupper():
+        kinds.append("mayúsculas")
+    elif form[:1].isupper() and not lemma[:1].isupper():
+        kinds.append("mayúscula inicial")
+    lw, fw = lemma.lower().split(), form.lower().split()
+    if lw == fw:
+        return "+".join(kinds) or "otra"
+    if len(lw) == len(fw) and all(a == b or _is_plural_of(b, a) for a, b in zip(lw, fw)):
+        return "+".join(["plural"] + kinds)
+    norm = lambda s: s.lower().replace("-", " ").replace("‐", " ").split()
+    if norm(lemma) == norm(form):
+        return "+".join(["ortográfica"] + kinds)
+    if _strip_accents(lemma.lower()) == _strip_accents(form.lower()):
+        return "+".join(["sin tilde"] + kinds)
+    return "otra"
+
+
+def surface_forms(term: Dict[str, Any]) -> List[str]:
+    """All the surface forms of a candidate, most frequent first."""
+    forms: List[str] = []
+    for form in [term.get("term", "")] + list(term.get("variants", [])):
+        if form and form not in forms:
+            forms.append(form)
+    freq = term.get("surface_freq") or {}
+    return sorted(forms, key=lambda f: -freq.get(f, 0)) if freq else forms
+
+
+def _is_plural_form(lemma: str, form: str) -> bool:
+    """Whether ``form`` is a plural of the candidate: its head noun (the first
+    word in Spanish, the last one in English) is a plural of the lemma's."""
+    lw, fw = lemma.lower().split(), form.lower().split()
+    if not lw or len(lw) != len(fw):
+        return False
+    return _is_plural_of(fw[0], lw[0]) or _is_plural_of(fw[-1], lw[-1])
+
+
+def display_form(term: Dict[str, Any]) -> str:
+    """
+    Form under which a candidate is shown: the most frequent form attested in
+    the texts, preferably in the singular and in lower case. The lemma joins
+    the base forms of each word and can break agreement (*ficha terminológico*)
+    or the term itself (*base de dato*), so it is kept only to group the forms.
+    """
+    lemma = term.get("lemma") or term.get("term", "")
+    forms = surface_forms(term)
+    if not forms:
+        return lemma
+    freq = term.get("surface_freq") or {}
+    groups: Dict[str, List[str]] = {}
+    for f in forms:
+        groups.setdefault(f.lower(), []).append(f)
+    total = lambda k: sum(freq.get(f, 0) for f in groups[k])
+    keys = list(groups)                      # ya en orden de frecuencia
+    singular = [k for k in keys if not _is_plural_form(lemma, k)]
+    best = max(singular or keys, key=lambda k: (total(k), -keys.index(k)))
+    lower = [f for f in groups[best] if f == f.lower()]
+    return lower[0] if lower else groups[best][0]
+
+
+def describe_variants(term: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Summary of a candidate's variants for display: the kinds that occur
+    (plural, initial capital, all capitals, orthographic) and the forms that
+    are not a predictable variant of the displayed form, worth listing.
+    """
+    base = display_form(term)
+    kinds, others = [], []
+    for form in [f for f in surface_forms(term) if f != base]:
+        label = classify_variant(base, form)
+        if label == "otra":
+            others.append(form)
+        for k in label.split("+"):
+            if k != "otra" and k not in kinds:
+                kinds.append(k)
+    order = ["plural", "ortográfica", "sin tilde", "mayúscula inicial", "mayúsculas"]
+    return {"kinds": sorted(kinds, key=order.index), "others": others}
+
+
+def variants_summary(term: Dict[str, Any]) -> str:
+    """One-line description, e.g. «También en plural y en mayúsculas · otras formas: X»."""
+    d = describe_variants(term)
+    names = {"plural": "en plural", "ortográfica": "con otra grafía (guion o espacio)",
+             "sin tilde": "sin tilde",
+             "mayúscula inicial": "con mayúscula inicial", "mayúsculas": "en mayúsculas"}
+    parts = [names[k] for k in d["kinds"]]
+    text = ""
+    if parts:
+        text = "También " + (parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " y " + parts[-1])
+    if d["others"]:
+        text += (" · " if text else "") + "Otras formas: " + ", ".join(d["others"])
+    return text
+
+
 class HybridTermExtractor:
     """
     Hybrid terminology extractor based on:
@@ -159,6 +317,10 @@ class HybridTermExtractor:
 
         if not candidates:
             return []
+
+        # 1b. Unify lemmas assigned inconsistently to the same candidate, so
+        #     that its forms are counted together in the statistics
+        candidates = self._unify_lemmas(candidates)
 
         # 2. Statistical weighting (termhood)
         enriched = compute_statistics(
@@ -467,6 +629,17 @@ class HybridTermExtractor:
 
         return terms
 
+    def _unify_lemmas(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Give the same lemma (the most frequent one of the group) to every
+        occurrence whose lemma has the same :func:`lemma_key`."""
+        groups: Dict[str, Counter] = defaultdict(Counter)
+        for c in candidates:
+            groups[lemma_key(c["lemma"], self.language)][c["lemma"]] += 1
+        canonical = {key: cnt.most_common(1)[0][0] for key, cnt in groups.items()}
+        for c in candidates:
+            c["lemma"] = canonical[lemma_key(c["lemma"], self.language)]
+        return candidates
+
     @staticmethod
     def _consolidate_terms(
         occurrences: List[Dict[str, Any]]
@@ -519,6 +692,7 @@ class HybridTermExtractor:
                 "nc_value_norm": _avg("nc_value_norm"),
                 "terminologicity": _avg("terminologicity"),
                 "variants": pre_variants,
+                "surface_freq": dict(surf_freq),
             })
 
         return terms

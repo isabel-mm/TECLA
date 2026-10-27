@@ -1,5 +1,29 @@
 # Cambios en TECLA
 
+## 2.2.0
+
+Para actualizar no hace falta desinstalar la versión anterior: basta con instalar la nueva encima. Los proyectos y las revisiones se conservan.
+
+### Novedades
+
+- **Retomar la revisión.** TECLA guarda la lista de candidatos junto con la revisión. Al volver a abrir una carpeta de trabajo, ofrece continuar la revisión donde se dejó, sin volver a ejecutar la extracción, o empezar de nuevo, archivando la anterior como copia. Si el corpus ha cambiado desde entonces, lo indica.
+- **Progreso de la revisión.** Encima de la lista se ven los candidatos revisados, aprobados y rechazados, y el porcentaje, con una barra.
+- **Concordancias.** Al seleccionar un candidato se muestran sus apariciones en los textos, con su contexto y el documento de procedencia en forma abreviada. Pueden filtrarse por documento, verse en su oración completa y exportarse a CSV.
+- **Uso propio de autor.** TECLA cuenta cuántos autores emplean cada candidato (columna *Autores*) y avisa cuando todas sus apariciones están en textos de los mismos autores. Cada candidato puede marcarse como posible uso propio de autor/es, y la marca se guarda y se exporta.
+- **Exportar los términos revisados** en CSV, JSON o TXT, solo los aprobados o también los rechazados, con su estado, la marca de uso de autor y las notas.
+- **Variantes por tipo.** En lugar de listar todas las formas, TECLA resume de qué tipo son (en plural, con mayúscula inicial, en mayúsculas, sin tilde, con guion o espacio); en la revisión, el resumen se despliega para verlas todas.
+- **Evaluación en una tabla.** Los resultados de cada prueba de representatividad se muestran en una tabla, con su explicación y su exportación a CSV.
+- **Ayuda en las medidas.** Cada medida de la extracción lleva un signo de interrogación que explica qué indica.
+- **Botón *Siguiente*** en la esquina inferior derecha de cada paso.
+
+### Correcciones
+
+- **Un mismo término aparecía como varios candidatos** cuando el análisis lingüístico asignaba lemas distintos a sus formas (*unidad terminológica* y *unidades terminológicas*, o la forma con y sin tilde). Ahora se reúnen en un solo candidato y sus frecuencias se suman antes de calcular las medidas. Las revisiones ya hechas pasan al candidato unido.
+- **Formas lematizadas que no existen** (*ficha terminológico*, *base de dato*). Cada candidato se muestra ahora con la forma que aparece en los textos, preferiblemente en singular.
+- **Autores mal deducidos del nombre del archivo** cuando tenían apellidos compuestos o eran varios. Con el esquema `Autor_Año_Título`, el autor es ahora todo lo que va antes del año.
+- **Los cuadros de exportación podían abrirse en una carpeta sin permiso de escritura** y la exportación fallaba. Ahora se abren en `_tecla_output`.
+- *Tema* pasa a llamarse *Temática* en los metadatos de los documentos.
+
 ## 2.1.1
 
 Para actualizar no hace falta desinstalar la versión anterior: basta con instalar la nueva encima. En macOS, se arrastra TECLA a Aplicaciones y se elige *Reemplazar*. Los proyectos, los resultados y la revisión se conservan, porque se guardan en la carpeta de trabajo y no en la aplicación. Al volver a ejecutar la extracción sobre un corpus ya analizado, los filtros nuevos pueden dar algunos candidatos menos.

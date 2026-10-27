@@ -178,3 +178,43 @@ class TestHybridExtractorErrorHandling:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# ── Unión de lemas, formas mostradas y tipos de variante (2.2.0) ─────────────
+
+from tecla.extractor.hybrid_extractor import (
+    classify_variant, display_form, lemma_key, variants_summary,
+)
+
+
+def test_lemma_key_une_numero_genero_y_tildes():
+    pares = [("unidad terminológica", "unidad terminológico"),
+             ("ficha terminologica", "ficha terminológico"),
+             ("base de dato", "bases de datos"),
+             ("red neuronal", "redes neuronales"),
+             ("nombre propio", "nombres propios")]
+    for a, b in pares:
+        assert lemma_key(a, "es") == lemma_key(b, "es")
+    assert lemma_key("frequency list", "en") == lemma_key("frequency lists", "en")
+
+
+def test_lemma_key_no_une_lo_que_no_debe():
+    assert lemma_key("lingüística", "es") != lemma_key("lingüístico", "es")   # núcleo: sin género
+    assert lemma_key("corpus", "es") == "corpus"                              # invariable
+    assert lemma_key("base", "es") != lemma_key("bas", "es")
+
+
+def test_classify_variant():
+    assert classify_variant("uso terminológico", "usos terminológicos") == "plural"
+    assert classify_variant("uso terminológico", "USOS TERMINOLÓGICOS") == "plural+mayúsculas"
+    assert classify_variant("relación conceptual", "Relación conceptual") == "mayúscula inicial"
+    assert classify_variant("corpus-based", "corpus based") == "ortográfica"
+    assert classify_variant("corpus", "corpora") == "plural"
+
+
+def test_display_form_prefiere_la_forma_atestiguada_en_singular():
+    t = {"lemma": "ficha terminológico", "term": "fichas terminológicas",
+         "variants": ["ficha terminológica", "Ficha terminológica"],
+         "surface_freq": {"fichas terminológicas": 5, "ficha terminológica": 3, "Ficha terminológica": 1}}
+    assert display_form(t) == "ficha terminológica"
+    assert variants_summary(t) == "También en plural y con mayúscula inicial"

@@ -262,4 +262,4 @@ For issues, questions, or contributions: isabel.moyano@gm.uca.es
 ---
 
 **Last Updated:** July 7, 2026  
-**Version:** 2.1.1
+**Version:** 2.2.0

@@ -1,6 +1,8 @@
 import csv
 import json
 import os
+import re
+from datetime import datetime
 import sys
 import threading
 from collections import Counter
@@ -21,7 +23,8 @@ import tkinter.ttk as ttk
 from tkinter import filedialog, messagebox
 
 from pipeline.pipeline import run_tecla_pipeline
-from tecla.extractor.hybrid_extractor import display_variants
+from tecla.extractor.hybrid_extractor import (classify_variant, display_form, lemma_key,
+                                              surface_forms, variants_summary)
 
 # ─────────────────────────────────────────────
 # Tema y constantes
@@ -48,6 +51,8 @@ _SEG_SEL_HOV   = "#6d28d9"   # hover del estado seleccionado
 _TEXT_LOG      = "#c4b5fd"   # texto del log
 _ROW_ODD       = "#ffffff"
 _ROW_EVEN      = "#f8f6ff"
+_INFO          = "#4338ca"   # índigo: avisos informativos (no errores)
+_INFO_DIM      = "#3730a3"
 _STATUS_COLOR  = {"pendiente": "#64748b", "aprobado": "#16a34a", "rechazado": "#dc2626"}
 
 # ── Sidebar (panel lateral lavanda) ──
@@ -77,6 +82,43 @@ _PRESET_HINTS = {
     "Equilibrado": "Combina frecuencia y patrón gramatical.",
     "Complejidad": "Términos técnicos largos y anidados.",
 }
+
+_METRIC_HELP = {
+    "Score": "Terminologicidad: índice de 0 a 1 que combina el TF-IDF y el NC-value según el "
+             "perfil elegido (por defecto, a partes iguales). Ordena los candidatos de más a menos "
+             "característicos del dominio. No es un umbral: sirve para decidir qué revisar primero.",
+    "TF-IDF": "Frecuencia del candidato multiplicada por la frecuencia inversa de documento. "
+              "Es alto si el candidato es frecuente y se concentra en algunos documentos, y más "
+              "bajo si aparece en casi todos, como las palabras generales.",
+    "C-val": "C-value: combina la frecuencia y la longitud del candidato, y descuenta las veces "
+             "que aparece dentro de candidatos más largos. Penaliza los fragmentos que casi solo "
+             "aparecen formando parte de otra unidad.",
+    "NC-val": "NC-value: el C-value ajustado con las palabras que suelen rodear a los términos del "
+              "corpus. Favorece a los candidatos que aparecen en contextos típicos de términos.",
+    "Frec": "Número de veces que aparece el candidato en el corpus, contando todas sus variantes.",
+    "Frec/mil": "Frecuencia relativa: apariciones por cada mil palabras del corpus. Permite "
+                "comparar corpus de distinto tamaño.",
+    "Docs": "Número de documentos en que aparece. Un término repartido por muchos documentos "
+            "suele estar más asentado que uno que solo emplea un autor.",
+    "Autores": "Número de autores distintos que emplean el candidato, según los metadatos de los "
+               "documentos o su nombre de archivo («Autor_Año_Título»). Si todas sus apariciones "
+               "están en textos de un mismo autor, puede tratarse de un uso propio de ese autor "
+               "y no de un término asentado en la comunidad.",
+}
+
+_EVAL_TESTS_HELP = (
+    "Cada prueba mide un aspecto del corpus y se puntúa de 0 a 100; el índice es su media.\n\n"
+    "Saturación: exponente de la ley de Heaps. Cuanto más bajo, antes deja de crecer el "
+    "vocabulario al añadir textos.\n\n"
+    "Hápax: proporción de palabras distintas que aparecen una sola vez. Una proporción alta "
+    "indica que aún faltan textos.\n\n"
+    "Dispersión: DP medio de los candidatos (0 = repartidos por todo el corpus; 1 = "
+    "concentrados en un documento).\n\n"
+    "Estabilidad: proporción de los candidatos principales que se mantienen al remuestrear "
+    "los documentos. Indica si el resultado depende de qué textos concretos forman el corpus."
+)
+
+_CONC_MAX = 500   # concordancias que se muestran por candidato (el CSV las exporta todas)
 
 _SORT_KEY_MAP = {
     "Score":    "terminologicity",
@@ -430,9 +472,17 @@ class TeclaApp(ctk.CTk):
         self._rev_selected   = None
         self._rev_term_btns  = {}     # CT → botón
         self._rev_more_label = None   # aviso de candidatos no mostrados
+        self._conc_texts     = None   # textos del corpus para las concordancias
+        self._conc_loading   = False
+        self._conc_cache     = {}     # CT → [(documento, inicio, fin)]
+        self._conc_doc_map   = {}
+        self._eval_raw       = {}     # datos brutos de la evaluación (tabla y CSV)
+        self._eval_rep       = None
+        self._eval_stab      = None
 
         self._build_ui()
         self._load_session()
+        self.after(700, self._offer_resume)
 
     # ═══════════════════════════════════════════
     # Layout principal
@@ -474,6 +524,7 @@ class TeclaApp(ctk.CTk):
         self._build_tab_extraccion()
         self._build_tab_evaluacion()
         self._build_tab_revision()
+        self._add_next_buttons()
 
 
     # ═══════════════════════════════════════════
@@ -940,7 +991,7 @@ class TeclaApp(ctk.CTk):
             ("slen",   "Long. or.",  78,  False, "e"),
             ("autor",  "Autor",     130,  False, "w"),
             ("año",    "Año",        55,  False, "c"),
-            ("tema",   "Tema",      100,  True,  "w"),
+            ("tema",   "Temática",  100,  True,  "w"),
         ]
         for cid, heading, width, stretch, anchor in corpus_cols:
             self._corpus_tree.heading(cid, text=heading)
@@ -987,7 +1038,7 @@ class TeclaApp(ctk.CTk):
                                       border_color=_BORDER, text_color=_TEXT,
                                       placeholder_text="2024")
         self._meta_año.pack(side="left", padx=(6, 16))
-        ctk.CTkLabel(row1, text="Tema:", font=ctk.CTkFont(size=11),
+        ctk.CTkLabel(row1, text="Temática:", font=ctk.CTkFont(size=11),
                      text_color=_TEXT_MUTED, width=44, anchor="e").pack(side="left")
         self._meta_tema = ctk.CTkEntry(row1, width=220, fg_color=_BG_CARD2,
                                        border_color=_BORDER, text_color=_TEXT,
@@ -1076,7 +1127,7 @@ class TeclaApp(ctk.CTk):
         if not self._doc_stats:
             messagebox.showwarning("Sin datos", "No hay datos de corpus para exportar.")
             return
-        path = filedialog.asksaveasfilename(
+        path = filedialog.asksaveasfilename(parent=self, initialdir=str(self._output_dir()), 
             defaultextension=".csv",
             filetypes=[("CSV", "*.csv")],
             initialfile="estadisticas_corpus.csv",
@@ -1233,6 +1284,7 @@ class TeclaApp(ctk.CTk):
             ("freq",     "Frec",       50,  False, "e", True),
             ("freq_rel", "Frec/mil",   72,  False, "e", True),
             ("docs",     "Docs",       44,  False, "e", True),
+            ("authors",  "Autores",    58,  False, "e", True),
         ]
 
         # Toggle row
@@ -1255,6 +1307,17 @@ class TeclaApp(ctk.CTk):
                 text_color=_TEXT_MUTED, font=ctk.CTkFont(size=10),
                 command=lambda c=cid, w=width, st=stretch: self._toggle_col(c, w, st),
             ).pack(side="left", padx=(0, 8))
+
+        # ── Qué mide cada columna ──
+        legend = ctk.CTkFrame(tab, fg_color="transparent")
+        legend.pack(fill="x", padx=18, pady=(0, 4))
+        ctk.CTkLabel(legend, text="Qué mide cada columna:",
+                     font=ctk.CTkFont(size=10), text_color=_TEXT_MUTED,
+                     ).pack(side="left", padx=(0, 8))
+        for name in ("Score", "TF-IDF", "C-val", "NC-val", "Frec", "Frec/mil", "Docs", "Autores"):
+            ctk.CTkLabel(legend, text=name, font=ctk.CTkFont(size=10),
+                         text_color=_TEXT).pack(side="left")
+            _help_icon(legend, _METRIC_HELP[name]).pack(side="left", padx=(3, 12))
 
         # ── Tabla de resultados ──
         tree_wrap = tk.Frame(tab, bg=_BG_ROOT)
@@ -1286,6 +1349,22 @@ class TeclaApp(ctk.CTk):
 
         vsb.pack(side="right", fill="y")
         self._results_tree.pack(side="left", fill="both", expand=True)
+
+    def _add_next_buttons(self):
+        """Botón «Siguiente» en la esquina inferior derecha de los pasos 1 a 3."""
+        names = ["Corpus", "Extracción", "Evaluación", "Revisión"]
+        for cur, nxt in zip(names, names[1:]):
+            tab = self._tabview.tab(cur)
+            bar = ctk.CTkFrame(tab, fg_color="transparent")
+            ctk.CTkButton(bar, text=f"Siguiente: {nxt}   →", height=32, corner_radius=8,
+                          fg_color=_ACCENT, hover_color=_ACCENT_DIM, text_color="#ffffff",
+                          font=ctk.CTkFont(size=12, weight="bold"),
+                          command=lambda n=nxt: self._tabview.set(n)).pack(side="right")
+            kids = [k for k in tab.winfo_children() if k is not bar]
+            opts = dict(side="bottom", fill="x", padx=18, pady=(0, 12))
+            if kids:
+                opts["before"] = kids[0]
+            bar.pack(**opts)
 
     # ═══════════════════════════════════════════
     # Pestaña 3 — Gráficos
@@ -1397,14 +1476,49 @@ class TeclaApp(ctk.CTk):
         _tab_header(tab, "Revisión de candidatos a término",
                     "Valida manualmente cada candidato: apruébalo, recházalo o añade notas.")
 
+        # Contador de la revisión y exportación de los términos validados
+        rev_bar = ctk.CTkFrame(tab, fg_color="transparent")
+        rev_bar.pack(fill="x", padx=18, pady=(0, 0))
+        self._rev_counter_label = ctk.CTkLabel(rev_bar, text="", font=ctk.CTkFont(size=12),
+                                               text_color=_ACCENT)
+        self._rev_counter_label.pack(side="left")
+        self._rev_progress = ctk.CTkProgressBar(rev_bar, width=180, height=8, corner_radius=4,
+                                                fg_color=_BORDER, progress_color=_TEAL)
+        self._rev_progress.set(0)
+        self._rev_progress.pack(side="left", padx=(12, 6))
+        self._rev_pct_label = ctk.CTkLabel(rev_bar, text="", font=ctk.CTkFont(size=12, weight="bold"),
+                                           text_color=_TEAL)
+        self._rev_pct_label.pack(side="left")
+        rev_bar = ctk.CTkFrame(tab, fg_color="transparent")   # fila de la exportación
+        rev_bar.pack(fill="x", padx=18, pady=(4, 0))
+        for fmt in ("TXT", "JSON", "CSV"):
+            ctk.CTkButton(rev_bar, text=f"⬇  {fmt}", width=72, height=28,
+                          fg_color=_ACCENT if fmt == "CSV" else _BG_CARD,
+                          hover_color=_ACCENT_DIM if fmt == "CSV" else _BG_CARD2,
+                          border_width=0 if fmt == "CSV" else 1, border_color=_ACCENT2,
+                          text_color="#ffffff" if fmt == "CSV" else _ACCENT2,
+                          font=ctk.CTkFont(size=12, weight="bold" if fmt == "CSV" else "normal"),
+                          command=lambda f=fmt.lower(): self._export_reviewed(f),
+                          ).pack(side="right", padx=(4, 0))
+        self._exp_rejected_var = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(rev_bar, text="incluir los rechazados", variable=self._exp_rejected_var,
+                        width=16, height=16, checkbox_width=15, checkbox_height=15,
+                        border_width=2, border_color=_STEP_PENDING, corner_radius=4,
+                        fg_color=_ACCENT, hover_color=_ACCENT_DIM, checkmark_color="#ffffff",
+                        text_color=_TEXT_MUTED, font=ctk.CTkFont(size=11),
+                        ).pack(side="right", padx=(10, 4))
+        ctk.CTkLabel(rev_bar, text="Exportar los términos revisados:", font=ctk.CTkFont(size=11),
+                     text_color=_TEXT_MUTED).pack(side="right", padx=(0, 6))
+
         # Layout: lista izquierda + detalle derecha
         left = ctk.CTkFrame(tab, width=260, fg_color=_BG_CARD, corner_radius=10,
                             border_width=1, border_color=_BORDER)
         left.pack(side="left", fill="y", padx=(18, 6), pady=16)
         left.pack_propagate(False)
 
-        right = ctk.CTkFrame(tab, fg_color=_BG_CARD, corner_radius=10,
-                             border_width=1, border_color=_BORDER)
+        right = ctk.CTkScrollableFrame(tab, fg_color=_BG_CARD, corner_radius=10,
+                                       border_width=1, border_color=_BORDER,
+                                       scrollbar_button_color=_BG_CARD2)
         right.pack(side="right", fill="both", expand=True, padx=(0, 18), pady=16)
 
         # ── Lista izquierda ──
@@ -1432,113 +1546,147 @@ class TeclaApp(ctk.CTk):
         self._rev_list_scroll.pack(fill="both", expand=True, padx=6, pady=(0, 10))
 
         # ── Panel de detalle derecho ──
-        self._rev_term_label = ctk.CTkLabel(right, text="Selecciona un término",
-                                             font=ctk.CTkFont(size=17, weight="bold"),
-                                             text_color=_TEXT_MUTED)
-        self._rev_term_label.pack(fill="x", padx=22, pady=(20, 2))
-
-        ctk.CTkFrame(right, height=1, fg_color=_BORDER).pack(fill="x", padx=22, pady=(6, 10))
-
-        ctk.CTkLabel(right, text="ESTADO",
-                     font=ctk.CTkFont(size=10, weight="bold"), text_color=_TEXT_MUTED, anchor="w",
-                     ).pack(fill="x", padx=22, pady=(0, 4))
-
-        status_row = ctk.CTkFrame(right, fg_color="transparent")
-        status_row.pack(fill="x", padx=22, pady=(0, 14))
+        # Orden: estado y término · concordancias · datos · notas
+        head = ctk.CTkFrame(right, fg_color="transparent")
+        head.pack(fill="x", padx=22, pady=(18, 4))
+        status_row = ctk.CTkFrame(head, fg_color="transparent")
+        status_row.pack(side="right", anchor="n")
         self._rev_status_btns = {}
         for status, color in _STATUS_COLOR.items():
             btn = ctk.CTkButton(
-                status_row, text=status.capitalize(), height=34,
+                status_row, text=status.capitalize(), height=32, width=96,
                 fg_color=_BG_CARD, hover_color=_BG_CARD2,
-                border_width=2, border_color=color,
-                text_color=color,
-                font=ctk.CTkFont(size=12, weight="bold"),
-                corner_radius=8,
+                border_width=2, border_color=color, text_color=color,
+                font=ctk.CTkFont(size=12, weight="bold"), corner_radius=8,
                 command=lambda s=status: self._set_review_status(s),
             )
-            btn.pack(side="left", padx=(0, 8))
+            btn.pack(side="left", padx=(6, 0))
             self._rev_status_btns[status] = btn
+        ctk.CTkFrame(head, width=1, height=34, fg_color=_BORDER).pack(side="right", padx=(14, 8))
+        term_box = ctk.CTkFrame(head, fg_color="transparent")
+        term_box.pack(side="left", fill="x", expand=True)
+        self._rev_term_label = ctk.CTkLabel(term_box, text="Selecciona un término",
+                                             font=ctk.CTkFont(size=17, weight="bold"),
+                                             text_color=_TEXT_MUTED, anchor="w")
+        self._rev_term_label.pack(fill="x")
+        self._rv = {}
+        self._rv["variants"] = ctk.CTkLabel(term_box, text="", font=ctk.CTkFont(size=11),
+                                             text_color=_ACCENT2, anchor="w",
+                                             wraplength=520, justify="left")
+        self._rv["variants"].pack(fill="x")
+        self._rv_forms_open = False
+        self._rv["variants"].configure(cursor="hand2")
+        self._rv["variants"].bind("<Button-1>", lambda _: self._toggle_forms())
+        self._rv["forms"] = ctk.CTkLabel(term_box, text="", font=ctk.CTkFont(size=11),
+                                          text_color=_TEXT_MUTED, anchor="w",
+                                          wraplength=520, justify="left")
 
-        ctk.CTkFrame(right, height=1, fg_color=_BORDER).pack(fill="x", padx=22, pady=4)
+        self._rv["author_note"] = ctk.CTkLabel(right, text="", font=ctk.CTkFont(size=11),
+                                                text_color=_INFO, anchor="w",
+                                                wraplength=900, justify="left")
+        self._rv["author_note"].pack(fill="x", padx=22, pady=(4, 0))
+        self._rev_author_var = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(right, text="Posible uso propio de autor/es", variable=self._rev_author_var,
+                        width=16, height=16, checkbox_width=15, checkbox_height=15,
+                        border_width=2, border_color=_INFO, corner_radius=4,
+                        fg_color=_INFO, hover_color=_INFO_DIM, checkmark_color="#ffffff",
+                        text_color=_TEXT, font=ctk.CTkFont(size=11),
+                        command=self._toggle_author_usage).pack(anchor="w", padx=22, pady=(6, 0))
+        ctk.CTkFrame(right, height=1, fg_color=_BORDER).pack(fill="x", padx=22, pady=(8, 4))
 
+        # ── Concordancias ──
+        conc_hdr = ctk.CTkFrame(right, fg_color="transparent")
+        conc_hdr.pack(fill="x", padx=22, pady=(8, 4))
+        ctk.CTkLabel(conc_hdr, text="CONCORDANCIAS",
+                     font=ctk.CTkFont(size=10, weight="bold"), text_color=_TEXT_MUTED,
+                     ).pack(side="left")
+        _help_icon(conc_hdr, "Apariciones del candidato en los textos del corpus, con su contexto "
+                             "a izquierda y derecha y el documento de procedencia. Ayudan a decidir "
+                             "si funciona como término en el uso.").pack(side="left", padx=(4, 0))
+        ctk.CTkButton(conc_hdr, text="⬇  CSV", width=64, height=22,
+                      fg_color="transparent", hover_color=_BG_CARD2,
+                      border_width=1, border_color=_ACCENT, text_color=_ACCENT,
+                      font=ctk.CTkFont(size=10), command=self._export_concordances,
+                      ).pack(side="right")
+        self._conc_info = ctk.CTkLabel(conc_hdr, text="", font=ctk.CTkFont(size=10),
+                                       text_color=_TEXT_MUTED)
+        self._conc_info.pack(side="right", padx=(0, 10))
+        conc_ctrl = ctk.CTkFrame(right, fg_color="transparent")
+        conc_ctrl.pack(fill="x", padx=22, pady=(0, 4))
+        self._conc_sort_var = ctk.StringVar(value="aparición")   # orden de aparición
+        self._conc_doc_var = ctk.StringVar(value="Todos los documentos")
+        self._conc_doc_menu = ctk.CTkOptionMenu(
+            conc_ctrl, variable=self._conc_doc_var, values=["Todos los documentos"],
+            width=230, height=24, font=ctk.CTkFont(size=10), dropdown_font=ctk.CTkFont(size=11),
+            fg_color=_BG_CARD2, button_color=_ACCENT, button_hover_color=_ACCENT_DIM,
+            text_color=_TEXT, command=lambda _: self._refresh_concordances())
+        self._conc_doc_menu.pack(side="left")
+        conc_wrap = tk.Frame(right, bg=_BORDER, bd=0)
+        conc_wrap.pack(fill="x", padx=22, pady=(0, 4))
+        self._conc_text = tk.Text(conc_wrap, height=11, wrap="none", relief="flat",
+                                  bg=_BG_CARD, fg=_TEXT, font=("Menlo", 11),
+                                  padx=8, pady=6, highlightthickness=0, cursor="hand2")
+        conc_x = tk.Scrollbar(conc_wrap, orient="horizontal", command=self._conc_text.xview,
+                              bg=_BG_ROOT, troughcolor=_BG_CARD, width=10)
+        self._conc_text.configure(xscrollcommand=conc_x.set)
+        self._conc_text.pack(fill="x", padx=1, pady=(1, 0))
+        conc_x.pack(fill="x", padx=1, pady=(0, 1))
+        self._conc_text.tag_configure("even", background=_ROW_EVEN)
+        self._conc_text.tag_configure("sel_line", background=_SB_SECTION)
+        self._conc_text.tag_configure("kw", foreground=_ACCENT, font=("Menlo", 11, "bold"))
+        self._conc_text.tag_configure("doc", foreground=_TEXT_MUTED)
+        self._conc_text.tag_raise("kw")
+        self._conc_text.bind("<Button-1>", self._on_concordance_click)
+        self._conc_text.configure(state="disabled")
+        self._conc_shown = []   # concordancias en pantalla, por línea
+        # Oración completa de la línea elegida
+        self._conc_detail = tk.Text(right, height=4, wrap="word", relief="flat",
+                                    bg=_BG_CARD2, fg=_TEXT, font=("Helvetica", 12),
+                                    padx=10, pady=8, highlightthickness=0)
+        self._conc_detail.tag_configure("kw", foreground=_ACCENT, font=("Helvetica", 12, "bold"))
+        self._conc_detail.tag_configure("doc", foreground=_TEXT_MUTED, font=("Helvetica", 11))
+        self._conc_detail.pack(fill="x", padx=22, pady=(0, 10))
+        self._set_concordance_detail(None)
+
+        # ── Datos de la extracción (tabla) ──
+        data_hdr = ctk.CTkFrame(right, fg_color="transparent")
+        data_hdr.pack(fill="x", padx=22, pady=(8, 4))
+        ctk.CTkLabel(data_hdr, text="DATOS DE LA EXTRACCIÓN",
+                     font=ctk.CTkFont(size=10, weight="bold"), text_color=_TEXT_MUTED,
+                     ).pack(side="left")
+        _help_icon(data_hdr, "\n\n".join(f"{k}: {v}" for k, v in _METRIC_HELP.items())
+                   ).pack(side="left", padx=(4, 0))
+        data_wrap = tk.Frame(right, bg=_BG_CARD)
+        data_wrap.pack(fill="x", padx=22, pady=(0, 10))
+        self._rev_data_cols = [("score", "Score", 70), ("tfidf", "TF-IDF", 70),
+                               ("cval", "C-val", 70), ("ncval", "NC-val", 70),
+                               ("freq", "Frec", 60), ("freqrel", "Frec/mil", 70),
+                               ("docs", "Docs", 50), ("authors", "Autores", 60),
+                               ("pattern", "Patrón", 160)]
+        self._rev_data_tree = ttk.Treeview(data_wrap, style="TECLA.Treeview",
+                                           columns=[c for c, _, _ in self._rev_data_cols],
+                                           show="headings", selectmode="none", height=1)
+        for cid, heading, width in self._rev_data_cols:
+            self._rev_data_tree.heading(cid, text=heading)
+            self._rev_data_tree.column(cid, width=width, minwidth=width,
+                                       stretch=cid == "pattern",
+                                       anchor="w" if cid == "pattern" else "e")
+        self._rev_data_tree.pack(fill="x")
+
+        # ── Notas ──
         ctk.CTkLabel(right, text="NOTAS",
                      font=ctk.CTkFont(size=10, weight="bold"), text_color=_TEXT_MUTED, anchor="w",
-                     ).pack(fill="x", padx=22, pady=(10, 4))
-        self._rev_notes = ctk.CTkTextbox(right, height=160,
+                     ).pack(fill="x", padx=22, pady=(8, 4))
+        self._rev_notes = ctk.CTkTextbox(right, height=80,
                                           fg_color=_BG_CARD, text_color=_TEXT,
                                           border_width=1, border_color=_BORDER,
-                                          font=ctk.CTkFont(size=12),
-                                          corner_radius=6)
-        self._rev_notes.pack(fill="x", padx=22, pady=(0, 10))
-
-        ctk.CTkButton(right, text="💾  Guardar notas", height=34,
+                                          font=ctk.CTkFont(size=12), corner_radius=6)
+        self._rev_notes.pack(fill="x", padx=22, pady=(0, 8))
+        ctk.CTkButton(right, text="💾  Guardar notas", height=32,
                       fg_color=_ACCENT, hover_color=_ACCENT_DIM,
                       text_color="#ffffff", font=ctk.CTkFont(size=12, weight="bold"),
-                      corner_radius=8,
-                      command=self._save_review_notes,
+                      corner_radius=8, command=self._save_review_notes,
                       ).pack(anchor="w", padx=22, pady=(0, 16))
-
-        ctk.CTkFrame(right, height=1, fg_color=_BORDER).pack(fill="x", padx=22, pady=4)
-
-        # ── Estadísticas del término ──
-        ctk.CTkLabel(right, text="DATOS DE LA EXTRACCIÓN",
-                     font=ctk.CTkFont(size=10, weight="bold"), text_color=_TEXT_MUTED, anchor="w",
-                     ).pack(fill="x", padx=22, pady=(10, 4))
-
-        self._rev_stats_frame = ctk.CTkFrame(right, fg_color=_BG_CARD2, corner_radius=8)
-        self._rev_stats_frame.pack(fill="x", padx=22, pady=(0, 8))
-
-        self._rv: dict = {}  # value-label references
-
-        # Row 1: Score · TF-IDF · C-val · NC-val
-        _r1 = ctk.CTkFrame(self._rev_stats_frame, fg_color="transparent")
-        _r1.pack(fill="x", padx=10, pady=(10, 4))
-        for key, lbl in [("score", "Score"), ("tfidf", "TF-IDF"),
-                          ("cval", "C-val"), ("ncval", "NC-val")]:
-            _cell = ctk.CTkFrame(_r1, fg_color="transparent")
-            _cell.pack(side="left", expand=True)
-            ctk.CTkLabel(_cell, text=lbl,
-                         font=ctk.CTkFont(size=9), text_color=_TEXT_MUTED).pack()
-            self._rv[key] = ctk.CTkLabel(_cell, text="—",
-                                         font=ctk.CTkFont(size=12, weight="bold"),
-                                         text_color=_TEXT)
-            self._rv[key].pack()
-
-        ctk.CTkFrame(self._rev_stats_frame, height=1,
-                     fg_color=_BORDER).pack(fill="x", padx=10, pady=2)
-
-        # Row 2: Frecuencia · Frec/mil · Docs
-        _r2 = ctk.CTkFrame(self._rev_stats_frame, fg_color="transparent")
-        _r2.pack(fill="x", padx=10, pady=(4, 4))
-        for key, lbl in [("freq", "Frecuencia"), ("freqrel", "Frec/mil"), ("docs", "Docs")]:
-            _cell = ctk.CTkFrame(_r2, fg_color="transparent")
-            _cell.pack(side="left", expand=True)
-            ctk.CTkLabel(_cell, text=lbl,
-                         font=ctk.CTkFont(size=9), text_color=_TEXT_MUTED).pack()
-            self._rv[key] = ctk.CTkLabel(_cell, text="—",
-                                         font=ctk.CTkFont(size=12), text_color=_TEXT)
-            self._rv[key].pack()
-
-        ctk.CTkFrame(self._rev_stats_frame, height=1,
-                     fg_color=_BORDER).pack(fill="x", padx=10, pady=2)
-
-        # Row 3: Patrón
-        _r3 = ctk.CTkFrame(self._rev_stats_frame, fg_color="transparent")
-        _r3.pack(fill="x", padx=10, pady=(4, 4))
-        ctk.CTkLabel(_r3, text="Patrón",
-                     font=ctk.CTkFont(size=9), text_color=_TEXT_MUTED).pack(anchor="w")
-        self._rv["pattern"] = ctk.CTkLabel(_r3, text="—",
-                                            font=ctk.CTkFont(size=10),
-                                            text_color=_TEXT, anchor="w",
-                                            wraplength=380, justify="left")
-        self._rv["pattern"].pack(fill="x")
-
-        # Row 4: Variantes (oculto cuando vacío)
-        self._rv["variants"] = ctk.CTkLabel(self._rev_stats_frame, text="",
-                                             font=ctk.CTkFont(size=10),
-                                             text_color=_ACCENT2, anchor="w",
-                                             wraplength=380, justify="left")
-        self._rv["variants"].pack(fill="x", padx=10, pady=(0, 8))
 
     def _render_revision_list(self, _=None):
         for w in self._rev_term_btns.values():
@@ -1561,7 +1709,7 @@ class TeclaApp(ctk.CTk):
             color = _STATUS_COLOR[entry["status"]]
             btn = ctk.CTkButton(
                 self._rev_list_scroll,
-                text=f"●  {term}",
+                text=f"●  {display_form(t)}" + ("   · uso de autor/es" if entry.get("author_usage") else ""),
                 anchor="w", height=28,
                 fg_color="transparent",
                 hover_color=_BG_CARD,
@@ -1582,6 +1730,7 @@ class TeclaApp(ctk.CTk):
                 text_color=_TEXT_MUTED, font=ctk.CTkFont(size=10), justify="left")
             self._rev_more_label.pack(anchor="w", padx=8, pady=8)
 
+        self._update_review_counter()
         if not self._rev_term_btns:
             ctk.CTkLabel(self._rev_list_scroll, text="Sin términos.",
                          text_color=_TEXT_MUTED, font=ctk.CTkFont(size=11),
@@ -1591,7 +1740,8 @@ class TeclaApp(ctk.CTk):
         self._rev_selected = term
         entry = self._review_data.setdefault(term, {"status": "pendiente", "notes": ""})
 
-        self._rev_term_label.configure(text=term, text_color=_TEXT)
+        t_shown = next((t for t in self._all_results if t["lemma"] == term), None)
+        self._rev_term_label.configure(text=display_form(t_shown) if t_shown else term, text_color=_TEXT)
 
         # Resaltar botón de estado activo
         for s, btn in self._rev_status_btns.items():
@@ -1601,27 +1751,26 @@ class TeclaApp(ctk.CTk):
                 text_color="#ffffff" if active else _STATUS_COLOR[s],
             )
 
+        self._rev_author_var.set(bool(entry.get("author_usage")))
+
         # Notas
         self._rev_notes.delete("1.0", "end")
         self._rev_notes.insert("1.0", entry.get("notes", ""))
 
-        # Estadísticas del término
+        # Datos del término
         t_data = next((t for t in self._all_results if t["lemma"] == term), None)
+        self._rev_data_tree.delete(*self._rev_data_tree.get_children())
         if t_data:
-            self._rv["score"].configure(text=f"{t_data['terminologicity']:.4f}")
-            self._rv["tfidf"].configure(text=f"{t_data.get('tf_idf', 0):.1f}")
-            self._rv["cval"].configure(text=f"{t_data.get('c_value', 0):.2f}")
-            self._rv["ncval"].configure(text=f"{t_data.get('nc_value', 0):.2f}")
-            self._rv["freq"].configure(text=str(t_data["frequency"]))
-            self._rv["freqrel"].configure(text=f"{t_data.get('freq_rel', 0):.2f}")
-            self._rv["docs"].configure(text=str(t_data["doc_frequency"]))
-            self._rv["pattern"].configure(
-                text=" / ".join(t_data.get("patterns", [])) or "—"
-            )
-            variants = display_variants(t_data)
-            self._rv["variants"].configure(
-                text="Variantes: " + " · ".join(variants) if variants else ""
-            )
+            self._rev_data_tree.insert("", "end", values=(
+                f"{t_data['terminologicity']:.4f}", f"{t_data.get('tf_idf', 0):.1f}",
+                f"{t_data.get('c_value', 0):.2f}", f"{t_data.get('nc_value', 0):.2f}",
+                t_data["frequency"], f"{t_data.get('freq_rel', 0):.2f}",
+                t_data["doc_frequency"], len(self._authors_of(t_data)[0]) or "—",
+                " / ".join(t_data.get("patterns", [])) or "—"))
+            self._show_author_note(t_data)
+            self._rv_forms_open = False
+            self._render_forms(t_data)
+            self._show_concordances(term, t_data)
 
     def _set_review_status(self, status: str):
         if not self._rev_selected:
@@ -1643,6 +1792,436 @@ class TeclaApp(ctk.CTk):
             )
 
         self._save_review_data()
+        self._update_review_counter()
+
+    def _render_forms(self, t_data):
+        shown = display_form(t_data)
+        forms = [f for f in surface_forms(t_data) if f != shown]
+        lbl = self._rv["forms"]
+        summary = variants_summary(t_data)
+        if not forms:
+            self._rv["variants"].configure(text=summary)
+            lbl.pack_forget()
+            return
+        self._rv["variants"].configure(text=f"{summary}  {'▴' if self._rv_forms_open else '▾'}")
+        if self._rv_forms_open:
+            names = {"otra": "otra forma", "ortográfica": "otra grafía"}
+            lbl.configure(text="\n".join(
+                f"{f}   ({', '.join(names.get(k, k) for k in classify_variant(shown, f).split('+'))})"
+                for f in forms))
+            lbl.pack(fill="x", pady=(2, 0))
+        else:
+            lbl.pack_forget()
+
+    def _toggle_forms(self):
+        t_data = next((t for t in self._all_results if t["lemma"] == self._rev_selected), None)
+        if t_data:
+            self._rv_forms_open = not self._rv_forms_open
+            self._render_forms(t_data)
+
+    def _toggle_author_usage(self):
+        if not self._rev_selected:
+            self._rev_author_var.set(False)
+            return
+        entry = self._review_data.setdefault(self._rev_selected, {"status": "pendiente", "notes": ""})
+        if self._rev_author_var.get():
+            entry["author_usage"] = True
+        else:
+            entry.pop("author_usage", None)
+        btn = self._rev_term_btns.get(self._rev_selected)
+        if btn is not None:
+            t_sel = next((t for t in self._all_results if t["lemma"] == self._rev_selected), None)
+            btn.configure(text=f"●  {display_form(t_sel) if t_sel else self._rev_selected}"
+                               + ("   · uso de autor/es" if entry.get("author_usage") else ""))
+        self._save_review_data()
+        self._update_review_counter()
+
+    def _update_review_counter(self):
+        terms = [t["lemma"] for t in self._results]
+        status = [self._review_data.get(t, {}).get("status", "pendiente") for t in terms]
+        done = sum(s != "pendiente" for s in status)
+        n_author = sum(1 for t in terms if self._review_data.get(t, {}).get("author_usage"))
+        frac = done / len(terms) if terms else 0
+        self._rev_progress.set(frac)
+        pct = 100 * frac
+        self._rev_pct_label.configure(
+            text=(f"{pct:.0f} %" if pct >= 1 or done == 0 else "< 1 %") if terms else "")
+        self._rev_counter_label.configure(
+            text=(f"Revisados: {_miles(done)} de {_miles(len(terms))}   ·   "
+                  f"aprobados {_miles(status.count('aprobado'))}   ·   "
+                  f"rechazados {_miles(status.count('rechazado'))}"
+                  + (f"   ·   uso de autor/es {_miles(n_author)}" if n_author else "")) if terms else "")
+
+    def _export_reviewed(self, fmt: str):
+        wanted = {"aprobado", "rechazado"} if self._exp_rejected_var.get() else {"aprobado"}
+        status_of = lambda t: self._review_data.get(t["lemma"], {}).get("status", "pendiente")
+        approved = [t for t in self._all_results if status_of(t) in wanted]
+        approved.sort(key=lambda t: status_of(t) != "aprobado")   # primero los aprobados
+        if not approved:
+            messagebox.showwarning("TECLA", "Todavía no hay candidatos aprobados." if wanted == {"aprobado"}
+                                   else "Todavía no hay candidatos revisados.")
+            return
+        with_status = len(wanted) > 1
+        path = filedialog.asksaveasfilename(parent=self, initialdir=str(self._output_dir()), title="Exportar los términos revisados",
+                                            defaultextension=f".{fmt}",
+                                            filetypes=[(fmt.upper(), f"*.{fmt}")],
+                                            initialfile=f"terminos_{'revisados' if with_status else 'aprobados'}.{fmt}")
+        if not path:
+            return
+        fields = ["term", "lemma", "variants", "patterns", "terminologicity", "tf_idf",
+                  "c_value", "nc_value", "frequency", "freq_rel", "doc_frequency"]
+        def row(t):
+            r = {k: t.get(k, "") for k in fields}
+            r["term"] = display_form(t)
+            r["variants"] = [f for f in surface_forms(t) if f != r["term"]]
+            r["patterns"] = t.get("patterns", [])
+            r["status"] = status_of(t)
+            r["author_usage"] = bool(self._review_data.get(t["lemma"], {}).get("author_usage"))
+            r["notes"] = self._review_data.get(t["lemma"], {}).get("notes", "")
+            return r
+        try:
+            if fmt == "txt":
+                Path(path).write_text("\n".join(
+                    display_form(t) + (f"\t{status_of(t)}" if with_status else "")
+                    for t in approved) + "\n", encoding="utf-8")
+            elif fmt == "json":
+                Path(path).write_text(json.dumps([row(t) for t in approved], ensure_ascii=False,
+                                                 indent=2, default=float), encoding="utf-8")
+            else:
+                with open(path, "w", encoding="utf-8-sig", newline="") as f:
+                    w = csv.DictWriter(f, fieldnames=fields + ["status", "author_usage", "notes"])
+                    w.writeheader()
+                    for t in approved:
+                        r = row(t)
+                        r["variants"] = "; ".join(r["variants"])
+                        r["patterns"] = "; ".join(r["patterns"])
+                        r["author_usage"] = "sí" if r["author_usage"] else ""
+                        w.writerow(r)
+            n_ok = sum(status_of(t) == "aprobado" for t in approved)
+            detail = (f"{n_ok} aprobados y {len(approved) - n_ok} rechazados" if with_status
+                      else f"{n_ok} términos aprobados")
+            messagebox.showinfo("TECLA", f"Exportados {detail} a:\n{path}")
+        except Exception as e:
+            messagebox.showerror("TECLA", f"Error al exportar:\n{e}")
+
+    # ── Concordancias ──
+
+    def _texts_folder(self):
+        if self._clean_folder and Path(self._clean_folder).exists():
+            return Path(self._clean_folder)
+        base = Path(self.corpus_path_var.get() or ".") / _OUTPUT_DIR / "textos"
+        clean = base / "clean"
+        return clean if clean.exists() else base
+
+    def _load_conc_texts(self):
+        texts = {}
+        try:
+            for p in sorted(self._texts_folder().rglob("*.txt")):
+                texts[p.stem] = re.sub(r"\s+", " ", p.read_text(encoding="utf-8", errors="ignore"))
+        except Exception:
+            pass
+        self._conc_texts, self._conc_loading = texts, False
+        self.after(0, lambda: self._rev_selected and self._select_revision_term(self._rev_selected))
+
+    def _doc_label(self, doc_id: str) -> str:
+        """Forma corta del documento: «Casas Gómez (2023)», a partir de los metadatos
+        o, si no los hay, del nombre del archivo («Autor_Año_Título»)."""
+        meta = self._corpus_metadata.get(doc_id, {})
+        author, year = (meta.get("autor") or "").strip(), (meta.get("año") or "").strip()
+        if not author:
+            parts = doc_id.split("_")
+            author = parts[0] if parts else doc_id
+            year = year or (parts[1] if len(parts) > 1 and parts[1][:4].isdigit() else "")
+        author = re.sub(r"\s*\((coords?|eds?|dirs?)\.?\)", "", author)
+        people = [p.strip() for p in re.split(r"\s+y\s+|\s*;\s*|\s+and\s+|\s*&\s*", author) if p.strip()]
+        surnames = [p.split(",")[0].strip() for p in people]
+        short = f"{surnames[0]} et al." if len(surnames) > 2 else (" y ".join(surnames) or doc_id)
+        return f"{short} ({year})" if year and year.lower() != "xxx" else short
+
+    def _doc_authors(self, doc_id: str) -> list:
+        """Apellidos de los autores de un documento (metadatos o nombre de archivo)."""
+        meta = self._corpus_metadata.get(doc_id, {})
+        author = (meta.get("autor") or "").strip() or doc_id.split("_")[0]
+        author = re.sub(r"\s*\((coords?|eds?|dirs?)\.?\)", "", author)
+        people = [p.strip() for p in re.split(r"\s+y\s+|\s*;\s*|\s+and\s+|\s*&\s*", author) if p.strip()]
+        return [p.split(",")[0].strip() for p in people if p.split(",")[0].strip()]
+
+    def _authors_of(self, t) -> tuple:
+        """(autores que lo emplean, autores presentes en todos sus documentos).
+        Cuenta los documentos de la extracción y, si ya se han buscado, también
+        aquellos en que aparece cualquier forma del término en las concordancias."""
+        docs = set((t.get("per_doc") or {}).keys())
+        docs |= {name for name, _, _ in self._conc_cache.get(t.get("lemma"), [])}
+        sets = [set(self._doc_authors(d)) for d in docs]
+        sets = [x for x in sets if x]
+        if not sets:
+            return set(), set()
+        return set().union(*sets), set.intersection(*sets)
+
+    def _show_author_note(self, t):
+        authors, shared = self._authors_of(t)
+        ndocs = len(set((t.get("per_doc") or {}).keys())
+                    | {n for n, _, _ in self._conc_cache.get(t.get("lemma"), [])})
+        note = ""
+        who = " y ".join(sorted(shared))
+        whose = "de ese autor" if len(shared) == 1 else "de esos autores"
+        if shared and ndocs == 1:
+            note = f"!  Solo aparece en un documento, de {who}: puede ser un uso propio {whose}."
+        elif shared and len(authors) <= len(shared) + 1:
+            note = (f"!  Todas sus apariciones están en textos de {who}: "
+                    f"puede ser un uso propio {whose}.")
+        self._rv["author_note"].configure(text=note)
+
+    def _show_concordances(self, term, t_data):
+        if self._conc_texts is None:
+            if not self._conc_loading:
+                self._conc_loading = True
+                threading.Thread(target=self._load_conc_texts, daemon=True).start()
+            self._conc_shown = []
+            self._write_concordances([], "Cargando los textos del corpus…")
+            return
+        if term not in self._conc_cache:
+            forms = {term, *surface_forms(t_data)}
+            forms = sorted({f.strip() for f in forms if f and f.strip()}, key=len, reverse=True)
+            pat = re.compile(r"(?<!\w)(" + "|".join(re.escape(f) for f in forms) + r")(?!\w)", re.I)
+            self._conc_cache[term] = [(name, m.start(), m.end())
+                                      for name, text in self._conc_texts.items()
+                                      for m in pat.finditer(text)]
+        hits = self._conc_cache[term]
+        docs = Counter(name for name, _, _ in hits)
+        self._conc_doc_map = {f"{self._doc_label(d)} · {n}": d for d, n in docs.items()}
+        self._conc_doc_menu.configure(
+            values=["Todos los documentos"] + [f"{self._doc_label(d)} · {n}" for d, n in docs.most_common()])
+        self._conc_doc_var.set("Todos los documentos")
+        self._set_concordance_detail(None)
+        self._refresh_concordances()
+        self._show_author_note(t_data)
+
+    def _context(self, name, start, end, width=70):
+        """Contexto izquierdo y derecho sin cortar palabras."""
+        text = self._conc_texts[name]
+        left = text[max(0, start - width):start]
+        if start - width > 0 and " " in left:
+            left = "… " + left.split(" ", 1)[1]
+        right = text[end:end + width]
+        if end + width < len(text) and " " in right:
+            right = right.rsplit(" ", 1)[0] + " …"
+        return left, text[start:end], right
+
+    def _refresh_concordances(self):
+        term = self._rev_selected
+        if not term or self._conc_texts is None or term not in self._conc_cache:
+            return
+        all_hits = self._conc_cache[term]
+        doc = self._conc_doc_map.get(self._conc_doc_var.get())
+        hits = [h for h in all_hits if h[0] == doc] if doc else list(all_hits)
+        words = lambda s: re.findall(r"\w+", s.lower())
+        order = self._conc_sort_var.get()
+        if order == "anterior":
+            hits.sort(key=lambda h: words(self._conc_texts[h[0]][max(0, h[1] - 80):h[1]])[::-1])
+        elif order == "siguiente":
+            hits.sort(key=lambda h: words(self._conc_texts[h[0]][h[2]:h[2] + 80]))
+        shown = hits[:_CONC_MAX]
+        ndocs = len({h[0] for h in all_hits})
+        if not all_hits:
+            info = "Sin apariciones en los textos"
+        else:
+            info = f"{_miles(len(all_hits))} apariciones en {ndocs} documento{'s' if ndocs != 1 else ''}"
+            if doc:
+                info += f" · {len(hits)} en este"
+            if len(hits) > len(shown):
+                info += f" · se muestran {len(shown)}"
+        self._conc_shown = shown
+        self._write_concordances([(*self._context(*h), h[0]) for h in shown], info)
+
+    def _export_concordances(self):
+        term = self._rev_selected
+        if not term or self._conc_texts is None:
+            messagebox.showwarning("TECLA", "Selecciona primero un candidato.")
+            return
+        t_data = next((t for t in self._all_results if t["lemma"] == term), {"term": term})
+        forms = {term, *surface_forms(t_data)}
+        forms = sorted({f.strip() for f in forms if f and f.strip()}, key=len, reverse=True)
+        pat = re.compile(r"(?<!\w)(" + "|".join(re.escape(f) for f in forms) + r")(?!\w)", re.I)
+        rows = [(self._doc_label(name), name,
+                 *(c.strip(" …") for c in self._context(name, m.start(), m.end(), 120)))
+                for name, text in self._conc_texts.items() for m in pat.finditer(text)]
+        if not rows:
+            messagebox.showwarning("TECLA", "Este candidato no tiene apariciones en los textos.")
+            return
+        safe = re.sub(r"[^\w-]+", "_", term).strip("_") or "termino"
+        path = filedialog.asksaveasfilename(parent=self, initialdir=str(self._output_dir()), title="Exportar concordancias",
+                                            defaultextension=".csv", filetypes=[("CSV", "*.csv")],
+                                            initialfile=f"concordancias_{safe}.csv")
+        if not path:
+            return
+        try:
+            with open(path, "w", encoding="utf-8-sig", newline="") as f:
+                w = csv.writer(f)
+                w.writerow(["documento", "archivo", "contexto_izquierdo", "forma", "contexto_derecho"])
+                w.writerows(rows)
+            messagebox.showinfo("TECLA", f"Exportadas {len(rows)} concordancias a:\n{path}")
+        except Exception as e:
+            messagebox.showerror("TECLA", f"Error al exportar:\n{e}")
+
+    def _write_concordances(self, lines, info):
+        self._conc_info.configure(text=info)
+        txt = self._conc_text
+        txt.configure(state="normal")
+        txt.delete("1.0", "end")
+        for i, (left, kw, right, doc) in enumerate(lines):
+            start = txt.index("end-1c")
+            txt.insert("end", f"{left:>72} ")
+            txt.insert("end", kw, "kw")
+            txt.insert("end", f" {right:<72}   ")
+            txt.insert("end", self._doc_label(doc) + "\n", "doc")
+            if i % 2:
+                txt.tag_add("even", start, txt.index("end-1c"))
+        txt.configure(state="disabled")
+
+    def _on_concordance_click(self, event):
+        if self._conc_texts is None:
+            return
+        line = int(self._conc_text.index(f"@{event.x},{event.y}").split(".")[0]) - 1
+        if not (0 <= line < len(self._conc_shown)):
+            return
+        self._conc_text.tag_remove("sel_line", "1.0", "end")
+        self._conc_text.tag_add("sel_line", f"{line + 1}.0", f"{line + 2}.0")
+        name, start, end = self._conc_shown[line]
+        text = self._conc_texts[name]
+        a = max(text.rfind(". ", 0, start), text.rfind("? ", 0, start), text.rfind("! ", 0, start))
+        a = a + 2 if a >= 0 and start - a < 600 else max(0, start - 300)
+        ends = [i for i in (text.find(". ", end), text.find("? ", end), text.find("! ", end)) if i >= 0]
+        b = min(ends) + 1 if ends and min(ends) - end < 600 else min(len(text), end + 300)
+        self._set_concordance_detail((text[a:start], text[start:end], text[end:b], name))
+
+    def _set_concordance_detail(self, data):
+        box = self._conc_detail
+        box.configure(state="normal")
+        box.delete("1.0", "end")
+        if data is None:
+            box.insert("end", "Pulsa una línea para ver la oración completa.", "doc")
+        else:
+            left, kw, right, name = data
+            box.insert("end", f"{self._doc_label(name)}   ", "doc")
+            box.insert("end", left)
+            box.insert("end", kw, "kw")
+            box.insert("end", right)
+        box.configure(state="disabled")
+
+    # ── Revisión guardada ──
+
+    def _candidates_path(self):
+        workdir = self.corpus_path_var.get()
+        return Path(workdir) / _OUTPUT_DIR / "candidatos.json" if workdir else None
+
+    def _corpus_signature(self):
+        folder = Path(self.corpus_path_var.get()) / "corpus"
+        try:
+            return sorted(f"{p.name}|{p.stat().st_size}" for p in folder.iterdir()
+                          if p.is_file() and not p.name.startswith("."))
+        except OSError:
+            return []
+
+    def _save_candidates(self, results):
+        try:
+            data = {"version": 1, "saved_at": datetime.now().isoformat(timespec="minutes"),
+                    "language": self.language_var.get(), "corpus": self._corpus_signature(),
+                    "results": results}
+            (self._output_dir() / "candidatos.json").write_text(
+                json.dumps(data, ensure_ascii=False, default=float), encoding="utf-8")
+        except Exception as e:
+            self._log(f"⚠  No se pudieron guardar los candidatos: {e}")
+
+    def _offer_resume(self):
+        f = self._candidates_path()
+        if self._all_results or self._running or not f or not f.exists():
+            return
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            results = data.get("results") or []
+        except Exception:
+            return
+        if not results:
+            return
+        self._load_review_data()
+        status = [self._review_data.get(t["lemma"], {}).get("status", "pendiente") for t in results]
+        done = sum(s != "pendiente" for s in status)
+        try:
+            saved = datetime.fromisoformat(data.get("saved_at", "")).strftime("%d/%m/%Y, %H:%M")
+        except ValueError:
+            saved = "—"
+        changed = data.get("corpus") and data.get("corpus") != self._corpus_signature()
+
+        win = ctk.CTkToplevel(self)
+        win.title("TECLA")
+        win.configure(fg_color=_BG_CARD)
+        win.resizable(False, False)
+        win.transient(self)
+        ctk.CTkLabel(win, text="Hay una revisión en curso en esta carpeta",
+                     font=ctk.CTkFont(size=15, weight="bold"), text_color=_TEXT,
+                     ).pack(anchor="w", padx=24, pady=(20, 6))
+        pl = lambda n, w: f"{_miles(n)} {w}{'' if n == 1 else 's'}"
+        ctk.CTkLabel(win, text=(f"Llevas {pl(done, 'candidato')} revisado{'' if done == 1 else 's'} "
+                                f"({pl(status.count('aprobado'), 'aprobado')}, "
+                                f"{pl(status.count('rechazado'), 'rechazado')}).\n"
+                                f"Extracción guardada el {saved}."),
+                     font=ctk.CTkFont(size=12), text_color=_TEXT, justify="left",
+                     ).pack(anchor="w", padx=24)
+        if changed:
+            ctk.CTkLabel(win, text=("⚠  El corpus ha cambiado desde entonces (hay documentos nuevos, "
+                                    "eliminados o modificados). Puedes continuar, pero conviene volver "
+                                    "a ejecutar la extracción: tus decisiones se conservan."),
+                         font=ctk.CTkFont(size=11), text_color="#b45309", justify="left",
+                         wraplength=440).pack(anchor="w", padx=24, pady=(10, 0))
+        btns = ctk.CTkFrame(win, fg_color="transparent")
+        btns.pack(fill="x", padx=24, pady=(18, 20))
+
+        def resume():
+            win.destroy()
+            self._restore_results(results)
+
+        def restart():
+            if not messagebox.askyesno(
+                    "TECLA", "¿Quieres archivar la revisión guardada y empezar una nueva?\n\n"
+                             "No se borra nada: se guarda una copia en la carpeta _tecla_output.",
+                    parent=win):
+                return
+            stamp = datetime.now().strftime("%Y%m%d-%H%M")
+            out = f.parent
+            for name in ("revision.json", "candidatos.json"):
+                p = out / name
+                if p.exists():
+                    p.rename(out / f"{p.stem}_archivada_{stamp}.json")
+            self._review_data = {}
+            win.destroy()
+
+        ctk.CTkButton(btns, text="Continuar la revisión", height=34, corner_radius=8,
+                      fg_color=_ACCENT, hover_color=_ACCENT_DIM, text_color="#ffffff",
+                      font=ctk.CTkFont(size=12, weight="bold"), command=resume,
+                      ).pack(side="right")
+        ctk.CTkButton(btns, text="Empezar de nuevo", height=34, corner_radius=8,
+                      fg_color=_BG_CARD, hover_color=_BG_CARD2, border_width=1,
+                      border_color=_BORDER, text_color=_TEXT_MUTED,
+                      font=ctk.CTkFont(size=12), command=restart,
+                      ).pack(side="right", padx=(0, 8))
+        win.after(50, win.grab_set)
+
+    def _restore_results(self, results):
+        self._all_results = results
+        self._eval_done = False
+        self._conc_texts, self._conc_cache = None, {}
+        self._load_review_data()
+        try:
+            self._load_corpus_metadata()
+        except Exception:
+            pass
+        self._apply_filters(notify=False)
+        self._render_revision_list()
+        self._tabview.mark_done("Extracción", True)
+        self._tabview.set("Revisión")
+        self._log("Revisión retomada con la extracción guardada. Para evaluar el corpus, "
+                  "vuelve a ejecutar la extracción.")
 
     def _save_review_notes(self):
         if not self._rev_selected:
@@ -1775,6 +2354,38 @@ class TeclaApp(ctk.CTk):
             font=ctk.CTkFont(size=11), text_color=_TEXT_MUTED,
         )
         self._eval_stability_label.pack(side="left", padx=(12, 0))
+
+        # ── Tabla de resultados por prueba ──
+        tests_card = ctk.CTkFrame(left_col, fg_color=_BG_CARD, corner_radius=10,
+                                  border_width=1, border_color=_BORDER)
+        tests_card.pack(fill="x", pady=(0, 8))
+        tests_hdr = ctk.CTkFrame(tests_card, fg_color="transparent")
+        tests_hdr.pack(fill="x", padx=14, pady=(10, 4))
+        ctk.CTkLabel(tests_hdr, text="Resultados por prueba",
+                     font=ctk.CTkFont(size=10, weight="bold"),
+                     text_color=_TEXT_MUTED).pack(side="left")
+        _help_icon(tests_hdr, _EVAL_TESTS_HELP).pack(side="left", padx=(4, 0))
+        self._eval_csv_btn = ctk.CTkButton(
+            tests_hdr, text="⬇  CSV", width=64, height=22,
+            fg_color="transparent", hover_color=_BG_CARD2,
+            border_width=1, border_color=_ACCENT, text_color=_ACCENT,
+            font=ctk.CTkFont(size=10), state="disabled",
+            command=self._export_eval_csv)
+        self._eval_csv_btn.pack(side="right")
+        tests_wrap = tk.Frame(tests_card, bg=_BG_CARD)
+        tests_wrap.pack(fill="x", padx=10, pady=(0, 10))
+        self._eval_tests_tree = ttk.Treeview(
+            tests_wrap, style="TECLA.Treeview", columns=("prueba", "valor", "puntos"),
+            show="headings", selectmode="none", height=4)
+        for cid, heading, width, anchor in [("prueba", "Prueba", 92, "w"),
+                                            ("valor", "Valor", 120, "w"),
+                                            ("puntos", "Puntos", 50, "e")]:
+            self._eval_tests_tree.heading(cid, text=heading)
+            self._eval_tests_tree.column(cid, width=width, minwidth=width, stretch=False,
+                                         anchor=anchor)
+        self._eval_tests_tree.tag_configure("odd", background=_ROW_ODD, foreground=_TEXT)
+        self._eval_tests_tree.tag_configure("even", background=_ROW_EVEN, foreground=_TEXT)
+        self._eval_tests_tree.pack(fill="x")
 
         # ── Tarjeta de cobertura externa ──────────────────────────────────
         cov_card = ctk.CTkFrame(left_col, fg_color=_BG_CARD, corner_radius=10,
@@ -1970,6 +2581,7 @@ class TeclaApp(ctk.CTk):
             dp_scores = compute_dp(self._results, self._doc_stats)
             dp_sum    = dp_stats(dp_scores, self._results)
             rep_fast  = compute_representativity_score(heaps, hapax, dp_sum)
+            self._eval_raw = {"heaps": heaps, "hapax": hapax, "dp": dp_sum}
             self.after(0, self._render_eval_fast, heaps, dp_scores, rep_fast)
             self.after(0, lambda: self._eval_btn.configure(
                 text="Calculando estabilidad (bootstrap)…"))
@@ -2007,10 +2619,9 @@ class TeclaApp(ctk.CTk):
             text=rep.get("description", ""), text_color=_TEXT,
         )
 
-        # Componentes
-        comp = rep.get("components", {})
-        parts = [f"{k.capitalize()}: {v}" for k, v in comp.items()]
-        self._eval_components_label.configure(text="   ·   ".join(parts))
+        # Componentes: en la tabla de resultados por prueba
+        self._eval_rep = rep
+        self._update_eval_table()
 
         # Barra de escala
         self._draw_eval_scale(score, color)
@@ -2032,6 +2643,55 @@ class TeclaApp(ctk.CTk):
 
         # Gráficos
         self._render_eval_graphs(heaps, dp_scores)
+
+    def _eval_rows(self):
+        """Filas de la tabla de resultados por prueba: (prueba, valor, puntos, qué indica)."""
+        num = lambda x, nd=2: f"{x:.{nd}f}".replace(".", ",")
+        comp = (self._eval_rep or {}).get("components", {})
+        heaps, hapax, dp = (self._eval_raw.get(k) or {} for k in ("heaps", "hapax", "dp"))
+        stab = (self._eval_stab or {}).get("stability_index")
+        rows = []
+        if heaps.get("beta") is not None:
+            rows.append(("Saturación", f"β de Heaps = {num(heaps['beta'])}", comp.get("saturación"),
+                         "Velocidad a la que crece el vocabulario al añadir textos"))
+        if hapax:
+            rows.append(("Hápax", f"{num(100 * hapax.get('ratio', 0), 1)} % de los tipos",
+                         comp.get("hápax léxico"), "Palabras distintas que aparecen una sola vez"))
+        if dp:
+            rows.append(("Dispersión", f"DP medio = {num(dp.get('mean', 0))}", comp.get("dispersión"),
+                         "Reparto de los candidatos entre los documentos"))
+        rows.append(("Estabilidad", f"{round(100 * stab)} % (remuestreo)" if stab is not None
+                     else "calculando…" if self._eval_running else "—",
+                     comp.get("estabilidad"), "Candidatos principales que se mantienen al remuestrear"))
+        return rows
+
+    def _update_eval_table(self):
+        tree = self._eval_tests_tree
+        tree.delete(*tree.get_children())
+        for i, (name, value, pts, _) in enumerate(self._eval_rows(), 1):
+            tree.insert("", "end", tags=("odd" if i % 2 else "even",),
+                        values=(name, value, "—" if pts is None else pts))
+        self._eval_csv_btn.configure(state="normal" if self._eval_rep else "disabled")
+
+    def _export_eval_csv(self):
+        if not self._eval_rep:
+            return
+        path = filedialog.asksaveasfilename(parent=self, initialdir=str(self._output_dir()), title="Exportar la evaluación del corpus",
+                                            defaultextension=".csv", filetypes=[("CSV", "*.csv")],
+                                            initialfile="evaluacion_corpus.csv")
+        if not path:
+            return
+        try:
+            with open(path, "w", encoding="utf-8-sig", newline="") as f:
+                w = csv.writer(f)
+                w.writerow(["prueba", "valor", "puntuacion_0_100", "que_indica"])
+                for name, value, pts, what in self._eval_rows():
+                    w.writerow([name, value, "" if pts is None else pts, what])
+                w.writerow(["Índice de representatividad terminológica", self._eval_rep.get("label", ""),
+                            self._eval_rep.get("score", ""), "Media de las pruebas anteriores"])
+            messagebox.showinfo("TECLA", f"Evaluación exportada a:\n{path}")
+        except Exception as e:
+            messagebox.showerror("TECLA", f"Error al exportar:\n{e}")
 
     def _draw_eval_scale(self, score: int, color: str):
         c = self._eval_scale_canvas
@@ -2266,6 +2926,8 @@ class TeclaApp(ctk.CTk):
 
 
     def _render_bootstrap_results(self, stability, rep):
+        self._eval_rep, self._eval_stab = rep, stability
+        self._update_eval_table()
         idx = stability.get("stability_index")
         if idx is not None:
             pct = round(idx * 100)
@@ -2428,6 +3090,33 @@ class TeclaApp(ctk.CTk):
                 self._review_data = data.get("terms", {})
             except Exception:
                 self._review_data = {}
+            self._remap_review_keys()
+
+    def _remap_review_keys(self):
+        """Traslada las decisiones guardadas con un lema que ya no existe al
+        candidato que ahora agrupa sus formas (p. ej., tras unir lemas)."""
+        if not self._all_results or not self._review_data:
+            return
+        lang = getattr(self, "_corpus_language", None) or self.language_var.get()
+        lang = lang if lang in ("es", "en") else "es"
+        current = {t["lemma"] for t in self._all_results}
+        by_key = {lemma_key(l, lang): l for l in current}
+        rank = {"aprobado": 2, "rechazado": 1, "pendiente": 0}
+        moved = False
+        for old in [k for k in self._review_data if k not in current]:
+            new = by_key.get(lemma_key(old, lang))
+            if not new:
+                continue
+            entry, prev = self._review_data.pop(old), self._review_data.get(new)
+            if prev is None or rank.get(entry.get("status"), 0) > rank.get(prev.get("status"), 0):
+                merged = dict(entry)
+                if prev:
+                    merged["notes"] = "\n".join(n for n in (prev.get("notes"), entry.get("notes")) if n)
+                    merged["author_usage"] = prev.get("author_usage") or entry.get("author_usage")
+                self._review_data[new] = merged
+            moved = True
+        if moved:
+            self._save_review_data()
 
     # ═══════════════════════════════════════════
     # Metadatos del corpus
@@ -2541,6 +3230,8 @@ class TeclaApp(ctk.CTk):
         folder = filedialog.askdirectory(title="Seleccionar directorio de trabajo")
         if folder:
             self.corpus_path_var.set(folder)
+            self._clear_results()
+            self.after(150, self._offer_resume)
 
     def _open_folder(self, path: Path):
         import subprocess, sys
@@ -2677,7 +3368,7 @@ class TeclaApp(ctk.CTk):
         if not selected:
             messagebox.showwarning("TECLA", "No hay ningún término seleccionado.")
             return
-        path = filedialog.asksaveasfilename(title="Exportar términos",
+        path = filedialog.asksaveasfilename(parent=self, initialdir=str(self._output_dir()), title="Exportar términos",
                                             defaultextension=".csv",
                                             filetypes=[("CSV", "*.csv")])
         if not path:
@@ -2706,7 +3397,7 @@ class TeclaApp(ctk.CTk):
         if not selected:
             messagebox.showwarning("TECLA", "No hay ningún término seleccionado.")
             return
-        path = filedialog.asksaveasfilename(title="Exportar TBX",
+        path = filedialog.asksaveasfilename(parent=self, initialdir=str(self._output_dir()), title="Exportar TBX",
                                             defaultextension=".tbx",
                                             filetypes=[("TBX", "*.tbx"), ("XML", "*.xml")])
         if not path:
@@ -2794,6 +3485,7 @@ class TeclaApp(ctk.CTk):
 
     def _on_corpus_ready(self, documents: list, clean_folder: str, language: str):
         self._clean_folder    = clean_folder
+        self._conc_texts, self._conc_cache = None, {}
         self._corpus_language = language
         self._documents       = documents
         self._doc_stats    = []
@@ -2859,6 +3551,8 @@ class TeclaApp(ctk.CTk):
 
     def _show_results(self, results):
         self._all_results = results
+        self._conc_cache = {}
+        self._save_candidates(results)
         self._eval_done = False
         self._load_review_data()
         self._apply_filters(notify=False)
@@ -2906,13 +3600,12 @@ class TeclaApp(ctk.CTk):
         for i, t in enumerate(results, 1):
             filled = max(0, min(10, round(10 * t["terminologicity"] / top)))
             pats     = "/".join(t.get("patterns", []))
-            variants = display_variants(t)
-            var_str  = " · ".join(variants) if variants else "—"
+            var_str  = variants_summary(t).replace("También ", "") or "—"
             tag      = "odd" if i % 2 == 1 else "even"
             self._results_tree.insert("", "end", iid=str(i - 1),
                 values=(
                     f"{i}.",
-                    t["lemma"],
+                    display_form(t),
                     var_str,
                     pats,
                     f"{t['terminologicity']:.4f}",
@@ -2923,6 +3616,7 @@ class TeclaApp(ctk.CTk):
                     t["frequency"],
                     f"{t.get('freq_rel', 0):.2f}",
                     t["doc_frequency"],
+                    len(self._authors_of(t)[0]) or "—",
                 ),
                 tags=(tag,),
             )

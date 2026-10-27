@@ -1,6 +1,6 @@
 ---
 title: "TECLA: guía de uso"
-subtitle: "Versión 2.1.1"
+subtitle: "Versión 2.2.0"
 lang: es
 toc: true
 toc-depth: 2
@@ -102,21 +102,21 @@ TECLA trabaja sobre una **carpeta de trabajo** que contiene una subcarpeta llama
 ```
 mi_proyecto/                <- carpeta de trabajo
 └── corpus/
-    ├── 2019_Autor_Titulo.pdf
-    ├── 2021_Autor_Titulo.pdf
+    ├── Rojo, G._2021_Introducción a la lingüística de corpus.pdf
+    ├── Casas Gómez, M. y Varo Varo, C. (coords.)_2023_La terminología de la semántica.pdf
     └── ...
 ```
 
 Dos recomendaciones:
 
 - **Una sola lengua por corpus.** La gramática de patrones y el modelo lingüístico se eligen para todo el corpus.
-- **Nombres de archivo informativos.** Si el nombre sigue un esquema del tipo `año_autor_título`, TECLA deduce de él el autor, el año y el título de cada documento, que después pueden corregirse a mano.
+- **Nombres de archivo informativos.** Si el nombre sigue el esquema `Autor_Año_Título`, TECLA deduce de él el autor, el año y el título de cada documento, que después pueden corregirse a mano. El autor es todo lo que va antes del año, de modo que admite apellidos compuestos y varios autores. Es también lo que permite a TECLA saber qué autores emplean cada candidato.
 
 Todo lo que TECLA genera se guarda dentro de la carpeta de trabajo (véase la sección «Qué archivos genera»); los documentos originales no se modifican.
 
 # La interfaz gráfica, paso a paso
 
-La ventana tiene dos zonas. A la izquierda, el **panel de configuración**: carpeta de trabajo, lengua, tipo de candidatos, perfil de puntuación, ajustes de extracción y el botón *Ejecutar*. A la derecha, las **cuatro pantallas** del flujo, a las que se accede por los pasos numerados de la parte superior: *Corpus*, *Extracción*, *Evaluación* y *Revisión*. El paso en curso aparece resaltado y los completados quedan marcados.
+La ventana tiene dos zonas. A la izquierda, el **panel de configuración**: carpeta de trabajo, lengua, tipo de candidatos, perfil de puntuación, ajustes de extracción y el botón *Ejecutar*. A la derecha, las **cuatro pantallas** del flujo, a las que se accede por los pasos numerados de la parte superior: *Corpus*, *Extracción*, *Evaluación* y *Revisión*. El paso en curso aparece resaltado y los completados quedan marcados. El botón *Siguiente*, en la esquina inferior derecha de cada pantalla, lleva al paso siguiente.
 
 ![Pantalla inicial.](web/img/inicio.png){width=100%}
 
@@ -145,7 +145,7 @@ Muestra las cifras del corpus (documentos, *tokens*, oraciones, tipos y relació
 | Dens. léx. | Proporción de palabras de contenido entre las palabras |
 | Long. or. | *Tokens* por oración, de media |
 
-Al seleccionar un documento, el panel inferior permite completar o corregir sus **metadatos** (autor, año, tema, fuente y notas). El botón *Exportar CSV* guarda la tabla completa.
+Al seleccionar un documento, el panel inferior permite completar o corregir sus **metadatos** (autor, año, temática, fuente y notas). El botón *Exportar CSV* guarda la tabla completa.
 
 ![Pantalla Corpus.](web/img/corpus.png){width=100%}
 
@@ -155,8 +155,8 @@ La extracción tiene dos etapas. La primera es **lingüística**: se buscan en e
 
 | Columna | Qué indica |
 |---|---|
-| Candidato | Forma lematizada del candidato |
-| Variantes | Otras formas con que aparece en los textos (plural, mayúsculas, guiones) y, en su caso, la sigla o la forma desarrollada |
+| Candidato | La forma con que aparece más a menudo en los textos, preferiblemente en singular |
+| Variantes | Las demás formas, resumidas por tipo (en plural, con mayúscula inicial, en mayúsculas, sin tilde, con guion o espacio); las que no son una variante previsible se muestran tal cual |
 | Score | Índice de terminologicidad, con una barra que lo representa |
 | TF-IDF | Frecuencia ponderada por el número de documentos en que aparece |
 | C-val | *C-value*: penaliza a los candidatos que aparecen sobre todo dentro de otros más largos |
@@ -164,6 +164,9 @@ La extracción tiene dos etapas. La primera es **lingüística**: se buscan en e
 | Frec | Frecuencia absoluta |
 | Frec/mil | Frecuencia por mil *tokens* |
 | Docs | Número de documentos en que aparece |
+| Autores | Número de autores distintos que lo emplean, según los metadatos de los documentos |
+
+Bajo un mismo candidato se reúnen todas sus formas, aunque el análisis lingüístico les haya asignado lemas distintos: el singular y el plural, las variantes de género de los adjetivos y las formas con y sin tilde (*unidad terminológica* y *unidades terminológicas*, *ficha terminológica* y *ficha terminologica*). Sus frecuencias se suman antes de calcular las medidas. La fila *Qué mide cada columna*, encima de la tabla, explica cada medida al pasar el ratón por su signo de interrogación.
 
 La tabla puede **ordenarse** por cualquiera de las medidas, y las columnas pueden mostrarse u ocultarse con las casillas de la fila *Columnas*. Los botones *CSV* y *TBX* exportan los candidatos seleccionados o, si no hay ninguno seleccionado, todos los que se muestran.
 
@@ -179,6 +182,7 @@ Responde a una pregunta que conviene hacerse antes de dar por bueno un inventari
   - *dispersión*: si los candidatos principales se reparten por los documentos (medida DP);
   - *estabilidad*: si el núcleo del inventario se mantiene al cambiar los documentos (remuestreo).
 - La **dispersión de cada candidato** (DP). Un valor próximo a 0 indica que el candidato se reparte por todos los documentos; uno próximo a 1, que se concentra en uno o en unos pocos, de modo que puede ser un uso propio de un autor.
+- Una tabla con los **resultados por prueba**: el valor medido en cada una (exponente de Heaps, proporción de hápax, DP medio y estabilidad) y su puntuación de 0 a 100. El botón *CSV* la exporta, junto con el índice.
 - Los **gráficos**: crecimiento del vocabulario, dispersión y distribución de frecuencias.
 
 El IRT es una orientación rápida. Sus umbrales son convenciones de la herramienta, no valores validados empíricamente: conviene leerlo junto con sus componentes y no como un veredicto.
@@ -192,9 +196,19 @@ Dos análisis opcionales necesitan un fichero aportado por el usuario:
 
 ## Paso 4: Revisión
 
-Ningún sistema automático sustituye el juicio del especialista. En esta pantalla cada candidato se marca como *aprobado*, *rechazado* o *pendiente*, y se le pueden añadir notas. La lista de la izquierda puede filtrarse por estado, y el panel de la derecha muestra todas las cifras del candidato seleccionado.
+Ningún sistema automático sustituye el juicio del especialista. En esta pantalla cada candidato se marca como *aprobado*, *rechazado* o *pendiente*. La lista de la izquierda puede filtrarse por estado, y encima de ella se ve el progreso: cuántos candidatos se han revisado, cuántos se han aprobado y rechazado, y el porcentaje, con una barra.
 
-La revisión se guarda automáticamente en la carpeta de trabajo, de modo que puede retomarse donde se dejó. Cuando el corpus produce muchos candidatos, la lista muestra los 300 primeros; el filtro por estado permite llegar al resto.
+Para cada candidato, el panel de la derecha muestra, en este orden:
+
+1. **El candidato y su estado.** Bajo la forma del candidato, un resumen de sus variantes («También en plural y con mayúscula inicial»); al pulsarlo se despliegan todas las formas, cada una con su tipo.
+2. **El aviso de uso de autor.** Si todas las apariciones del candidato están en textos de los mismos autores, TECLA lo indica, porque puede tratarse de un uso propio de esos autores y no de un término asentado. La casilla *Posible uso propio de autor/es* permite dejarlo anotado.
+3. **Las concordancias**: las apariciones del candidato en los textos, con su contexto a izquierda y derecha y el documento de procedencia, en forma abreviada («Casas Gómez y Varo Varo (2023)»). Se muestran hasta 500 y pueden filtrarse por documento. Al pulsar una línea se ve la oración completa. El botón *CSV* exporta todas las apariciones.
+4. **Los datos de la extracción**, en una tabla con todas las medidas del candidato.
+5. **Las notas.**
+
+La revisión se guarda automáticamente en la carpeta de trabajo, junto con la lista de candidatos. Al volver a abrir TECLA con la misma carpeta, un aviso ofrece **continuar la revisión** donde se dejó, sin volver a ejecutar la extracción; *Empezar de nuevo* archiva la revisión anterior como copia, sin borrarla. Si el corpus ha cambiado desde entonces, el aviso lo indica: conviene volver a ejecutar la extracción, y las decisiones ya tomadas se conservan. Cuando el corpus produce muchos candidatos, la lista muestra los 300 primeros; el filtro por estado permite llegar al resto.
+
+Los botones de la parte superior exportan los **términos revisados** en CSV o JSON (con sus cifras, su estado, la marca de uso de autor y las notas) o en TXT (un término por línea). Por defecto se exportan los aprobados; con la casilla *incluir los rechazados*, también estos, con su estado.
 
 ![Pantalla Revisión.](web/img/revision.png){width=100%}
 
@@ -221,7 +235,8 @@ Todo queda en la carpeta `_tecla_output`, junto a la carpeta `corpus` y nunca de
 | `_tecla_output/metadata.csv` | Autor, año y título deducidos del nombre de cada archivo |
 | `_tecla_output/estadisticas_corpus.csv` | Las estadísticas de cada documento y del corpus |
 | `_tecla_output/metadatos_documentos.json` | Los metadatos corregidos a mano |
-| `_tecla_output/revision.json` | El estado y las notas de cada candidato revisado |
+| `_tecla_output/revision.json` | El estado, las notas y la marca de uso de autor de cada candidato revisado |
+| `_tecla_output/candidatos.json` | La lista de candidatos de la última extracción, para retomar la revisión |
 | `_tecla_output/graphs/extraction/` | Gráficos de la extracción (PNG) |
 | `_tecla_output/graphs/evaluation/` | Gráficos de la evaluación (PNG) |
 | `_tecla_output/tecla_debug.txt` | Registro de tiempos de cada etapa, útil si un proceso va lento |
@@ -230,6 +245,8 @@ El inventario se exporta, además, en dos formatos, donde el usuario indique:
 
 - **CSV**: una fila por candidato, con todas sus cifras.
 - **TBX-Basic** (ISO 30042): el estándar de intercambio terminológico, con las variantes de cada candidato.
+
+Desde la revisión se exportan, además, los términos revisados (CSV, JSON o TXT) y las concordancias de cada candidato (CSV), y desde la evaluación, los resultados por prueba (CSV). Los cuadros de guardar se abren en la carpeta `_tecla_output`.
 
 # Línea de comandos
 
