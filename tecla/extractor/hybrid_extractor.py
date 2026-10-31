@@ -679,9 +679,9 @@ class HybridTermExtractor:
             term_surface = surf_freq.most_common(1)[0][0]
             pre_variants = [s for s in surf_freq if s != term_surface]
 
-            merged_per_doc: Counter = Counter()
-            for o in occs:
-                merged_per_doc.update(o.get("per_doc", {}))
+            # Todas las apariciones de un mismo lema llevan el mismo recuento por
+            # documento (el del lema): se toma una vez, no una por aparición.
+            merged_per_doc: Counter = Counter(occs[0].get("per_doc", {}))
 
             def _avg(field: str) -> float:
                 return sum(o.get(field, 0.0) for o in occs) / len(occs)

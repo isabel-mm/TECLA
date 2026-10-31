@@ -174,16 +174,22 @@ La tabla puede **ordenarse** por cualquiera de las medidas, y las columnas puede
 
 ## Paso 3: Evaluación
 
-Responde a una pregunta que conviene hacerse antes de dar por bueno un inventario: ¿recoge este corpus la terminología del dominio de forma suficiente? Se pulsa *Calcular representatividad* y TECLA muestra:
+Responde a una pregunta que conviene hacerse antes de dar por bueno un inventario: ¿recoge este corpus la terminología del dominio de forma suficiente? En *Calcular sobre* se elige con qué unidades se calcula:
 
-- El **Índice de Representatividad Terminológica (IRT)**, de 0 a 100, con una etiqueta (de «escasamente representativo» a «muy representativo») y un texto que separa lo que juega a favor y en contra. Promedia cuatro componentes:
-  - *saturación*: si el vocabulario deja de crecer al añadir textos (ley de Heaps);
-  - *hápax*: qué proporción de los lemas aparece una sola vez;
-  - *dispersión*: si los candidatos principales se reparten por los documentos (medida DP);
-  - *estabilidad*: si el núcleo del inventario se mantiene al cambiar los documentos (remuestreo).
-- La **dispersión de cada candidato** (DP). Un valor próximo a 0 indica que el candidato se reparte por todos los documentos; uno próximo a 1, que se concentra en uno o en unos pocos, de modo que puede ser un uso propio de un autor.
-- Una tabla con los **resultados por prueba**: el valor medido en cada una (exponente de Heaps, proporción de hápax, DP medio y estabilidad) y su puntuación de 0 a 100. El botón *CSV* la exporta, junto con el índice.
+- **Candidatos**: antes de revisar, una **estimación provisional**, útil para saber pronto si conviene añadir textos. Depende de la extracción: entre los candidatos más frecuentes suele haber palabras generales que no son términos.
+- **Términos aprobados**: después de la revisión (paso 4), la **evaluación definitiva** del inventario, sobre los candidatos marcados como aprobados.
+
+Se pulsa *Calcular representatividad* y TECLA muestra:
+
+- El **Índice de Representatividad Terminológica (IRT)**, de 0 a 100, con una etiqueta (de «escasamente representativo» a «muy representativo») y un texto que separa lo que juega a favor y en contra. Promedia tres componentes:
+  - *saturación*: si el vocabulario deja de crecer al añadir textos (ley de Heaps sobre los lemas);
+  - *dispersión*: si las 50 unidades más frecuentes se reparten por los documentos (DP medio);
+  - *estabilidad*: qué proporción de las 30 unidades más frecuentes sigue entre las 30 primeras al remuestrear los documentos (200 remuestreos).
+- Una tabla con los **resultados por prueba**: el valor medido en cada una y su puntuación de 0 a 100. Incluye también la proporción de hápax (lemas que aparecen una sola vez), como dato descriptivo del vocabulario que no entra en el índice. El botón *CSV* la exporta, junto con el índice.
+- La **dispersión de cada unidad** (DP) de las 50 más frecuentes. Un valor próximo a 0 indica que la unidad se reparte por todos los documentos; uno próximo a 1, que se concentra en uno o en unos pocos, de modo que puede ser un uso propio de un autor.
 - Los **gráficos**: crecimiento del vocabulario, dispersión y distribución de frecuencias.
+
+Las pruebas siguen el mismo procedimiento que la tesis en la que se desarrolló TECLA. Las cifras pueden diferir ligeramente de las de un inventario anotado, porque TECLA cuenta todas las apariciones de cada forma en el texto, y no solo las que funcionan como término.
 
 El IRT es una orientación rápida. Sus umbrales son convenciones de la herramienta, no valores validados empíricamente: conviene leerlo junto con sus componentes y no como un veredicto.
 

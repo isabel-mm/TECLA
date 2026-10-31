@@ -1,5 +1,19 @@
 # Cambios en TECLA
 
+## Próxima versión (sin publicar)
+
+### Novedades
+
+- **Evaluación provisional o definitiva.** En el paso 3 se elige si la representatividad se calcula sobre los candidatos (estimación provisional, antes de revisar) o sobre los términos aprobados en la revisión (evaluación definitiva del inventario).
+
+### Correcciones
+
+- **Estabilidad.** Ordena por frecuencia las unidades del corpus original y las de cada remuestreo. Antes comparaba las primeras por terminologicidad con las primeras por frecuencia, lo que la infravaloraba.
+- **Dispersión.** El DP medio se calcula sobre las 50 unidades más frecuentes, y no sobre las 50 de mayor terminologicidad.
+- **Ley de Heaps.** Se ajusta sobre los lemas de las palabras alfabéticas y con toda la curva.
+- **Recuento por documento.** Ya no se multiplica por la frecuencia del candidato al reunir sus apariciones.
+- **Índice de representatividad.** La proporción de hápax deja de contar en el índice; se sigue mostrando como dato descriptivo.
+
 ## 2.2.0
 
 Para actualizar no hace falta desinstalar la versión anterior: basta con instalar la nueva encima. Los proyectos y las revisiones se conservan.

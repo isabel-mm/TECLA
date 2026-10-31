@@ -24,9 +24,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 def compute_heaps(documents: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Fit Heaps' Law on raw corpus tokens (lemmas).
-    β close to 0 → saturated vocabulary.
-    β close to 1 → vocabulary still growing fast.
+    Ajusta la ley de Heaps sobre los lemas de las palabras alfabéticas, en el
+    orden de los documentos, con unos 5000 puntos de la curva y todos ellos en
+    el ajuste (mismo método que el cap. 3 de la tesis).
+    β próximo a 0 → vocabulario saturado; próximo a 1 → sigue creciendo.
     """
     import numpy as np
 
@@ -35,14 +36,13 @@ def compute_heaps(documents: List[Dict[str, Any]]) -> Dict[str, Any]:
     types_y: List[int] = []
 
     total_est = sum(len(d.get("tokens", [])) for d in documents)
-    # Sample at most 15 000 points to keep fitting fast
-    step = max(1, total_est // 15_000)
+    step = max(1, total_est // 5_000)
 
     counter = 0
     for doc in documents:
         for tok in doc.get("tokens", []):
             lemma = tok.get("lemma", "").lower()
-            if not lemma:
+            if not lemma or not tok.get("text", lemma).isalpha():
                 continue
             seen.add(lemma)
             counter += 1
@@ -63,9 +63,8 @@ def compute_heaps(documents: List[Dict[str, Any]]) -> Dict[str, Any]:
             "interpretation": "Corpus demasiado pequeño para ajustar Heaps.",
         }
 
-    skip = max(1, len(tokens_x) // 10)
-    log_n = np.log(np.array(tokens_x[skip:], dtype=float))
-    log_v = np.log(np.array(types_y[skip:], dtype=float))
+    log_n = np.log(np.array(tokens_x, dtype=float))
+    log_v = np.log(np.array(types_y, dtype=float))
     slope, intercept = np.polyfit(log_n, log_v, 1)
     beta = float(slope)
     k = float(math.exp(intercept))
@@ -162,16 +161,24 @@ def compute_dp(
     return dp_scores
 
 
+def _freq(term: Dict[str, Any]) -> int:
+    """Frecuencia de una unidad: suma de sus apariciones por documento."""
+    per_doc = term.get("per_doc") or {}
+    return sum(per_doc.values()) if per_doc else int(term.get("frequency", 0))
+
+
+def top_by_frequency(results: List[Dict[str, Any]], n: int) -> List[Dict[str, Any]]:
+    """Las n unidades más frecuentes (criterio del cap. 3 de la tesis)."""
+    return sorted(results, key=_freq, reverse=True)[:n]
+
+
 def dp_stats(
     dp_scores: Dict[str, float],
     results: List[Dict[str, Any]],
     top_n: int = 50,
 ) -> Dict[str, Any]:
-    """Summary DP statistics for the top-N terms by terminologicity."""
-    top_lemmas = [
-        t["lemma"]
-        for t in sorted(results, key=lambda x: x["terminologicity"], reverse=True)[:top_n]
-    ]
+    """DP medio de las top_n unidades más frecuentes (como en el cap. 3 de la tesis)."""
+    top_lemmas = [t["lemma"] for t in top_by_frequency(results, top_n)]
     top_dp = [dp_scores[l] for l in top_lemmas if l in dp_scores]
     if not top_dp:
         return {"mean": 0.5, "pct_high": 0.0}
@@ -196,8 +203,10 @@ def compute_bootstrap_stability(
     seed: int = 42,
 ) -> Dict[str, Any]:
     """
-    Estimates how stable the top-N term rankings are under corpus subsampling.
-    Returns per-term stability and a corpus-level stability index [0–1].
+    Proporción de las top_n unidades más frecuentes que siguen entre las top_n
+    al remuestrear los documentos con reposición (B = n_bootstrap). El orden es
+    el mismo, por frecuencia, en el corpus original y en cada remuestreo, como
+    en el cap. 3 de la tesis.
     """
     rng     = random.Random(seed)
     doc_ids = [d["doc_id"] for d in doc_stats]
@@ -207,10 +216,7 @@ def compute_bootstrap_stability(
         return {"stability_index": None, "term_stability": {}, "n_bootstrap": 0}
 
     per_doc_lookup = {t["lemma"]: t.get("per_doc", {}) for t in results}
-    original_top   = {
-        t["lemma"]
-        for t in sorted(results, key=lambda x: x["terminologicity"], reverse=True)[:top_n]
-    }
+    original_top   = {t["lemma"] for t in top_by_frequency(results, top_n)}
 
     in_top: Dict[str, int] = defaultdict(int)
 
@@ -425,12 +431,13 @@ def compute_representativity_score(
     Índice de Representatividad Terminológica (IRT), escala 0–100: es el índice
     que muestra la interfaz de TECLA y el que se describe en la tesis (cap. 8).
 
-    Media, con el mismo peso, de hasta cuatro componentes normalizados en [0, 1]
+    Media, con el mismo peso, de hasta tres componentes normalizados en [0, 1]
     (más alto = corpus más adecuado):
       - saturación  = 1 − (β − 0,25) / 0,65         (β de Heaps sobre lemas)
-      - hápax       = 1 − max(0, h − 0,40) / 0,45   (h = proporción de lemas hápax)
-      - dispersión  = (0,80 − DP medio) / 0,40       (DP de los 50 mejores candidatos)
+      - dispersión  = (0,80 − DP medio) / 0,40       (DP de las 50 unidades más frecuentes)
       - estabilidad = índice bootstrap                (opcional)
+    La proporción de hápax se sigue calculando como dato descriptivo, pero no
+    entra en el índice: describe el vocabulario, no la terminología.
     Interpretación: ≥ 75 muy representativo; 60–74 representativo;
     40–59 moderadamente; 25–39 poco; < 25 escasamente representativo.
     """
@@ -440,10 +447,6 @@ def compute_representativity_score(
     if heaps.get("beta") is not None:
         sat = max(0.0, min(1.0, 1.0 - (heaps["beta"] - 0.25) / 0.65))
         weights["saturación"] = (sat, 0.25)
-
-    # ── Hapax ratio (weight 0.25) ─────────────────────────────────────────
-    hapax_s = max(0.0, 1.0 - max(0.0, hapax["ratio"] - 0.40) / 0.45)
-    weights["hápax léxico"] = (hapax_s, 0.25)
 
     # ── Dispersion / DP (weight 0.25) ─────────────────────────────────────
     dp_s = max(0.0, min(1.0, (0.80 - dp_summary.get("mean", 0.5)) / 0.40))
@@ -481,7 +484,6 @@ def compute_representativity_score(
         return "{:.{}f}".format(x, nd).replace(".", ",")
 
     beta = heaps.get("beta")
-    r = hapax["ratio"]
     dp_m = dp_summary.get("mean", 0.5)
     texts = {
         "saturación": (
@@ -490,19 +492,12 @@ def compute_representativity_score(
             "el vocabulario sigue creciendo (exponente de Heaps = {}), de modo que nuevos textos "
             "aportarían vocabulario nuevo".format(_num(beta or 0)),
         ),
-        "hápax léxico": (
-            "la proporción de lemas que aparecen una sola vez es la habitual "
-            "({} %)".format(round(r * 100)),
-            "la proporción de lemas que aparecen una sola vez es algo elevada "
-            "({} %)".format(round(r * 100)),
-            "muchos lemas aparecen una sola vez ({} %)".format(round(r * 100)),
-        ),
         "dispersión": (
-            "los candidatos principales se reparten por los documentos "
+            "las unidades más frecuentes se reparten por los documentos "
             "(DP medio = {})".format(_num(dp_m)),
-            "los candidatos principales se reparten de forma desigual "
+            "las unidades más frecuentes se reparten de forma desigual "
             "(DP medio = {})".format(_num(dp_m)),
-            "los candidatos principales se concentran en pocos documentos "
+            "las unidades más frecuentes se concentran en pocos documentos "
             "(DP medio = {})".format(_num(dp_m)),
         ),
         "estabilidad": (

@@ -107,15 +107,18 @@ _METRIC_HELP = {
 }
 
 _EVAL_TESTS_HELP = (
-    "Cada prueba mide un aspecto del corpus y se puntúa de 0 a 100; el índice es su media.\n\n"
-    "Saturación: exponente de la ley de Heaps. Cuanto más bajo, antes deja de crecer el "
-    "vocabulario al añadir textos.\n\n"
-    "Hápax: proporción de palabras distintas que aparecen una sola vez. Una proporción alta "
-    "indica que aún faltan textos.\n\n"
-    "Dispersión: DP medio de los candidatos (0 = repartidos por todo el corpus; 1 = "
-    "concentrados en un documento).\n\n"
-    "Estabilidad: proporción de los candidatos principales que se mantienen al remuestrear "
-    "los documentos. Indica si el resultado depende de qué textos concretos forman el corpus."
+    "Cada prueba mide un aspecto del corpus y se puntúa de 0 a 100; el índice es la media de "
+    "la saturación, la dispersión y la estabilidad.\n\n"
+    "Saturación: exponente de la ley de Heaps sobre los lemas. Cuanto más bajo, antes deja de "
+    "crecer el vocabulario al añadir textos.\n\n"
+    "Dispersión: DP medio de las 50 unidades más frecuentes (0 = repartidas por todo el corpus; "
+    "1 = concentradas en un documento).\n\n"
+    "Estabilidad: proporción de las 30 unidades más frecuentes que siguen entre las 30 primeras "
+    "al remuestrear los documentos (200 remuestreos).\n\n"
+    "Hápax: proporción de palabras distintas que aparecen una sola vez. Es un dato descriptivo "
+    "del vocabulario y no entra en el índice.\n\n"
+    "Las unidades son los candidatos (estimación provisional) o los términos aprobados en la "
+    "Revisión (evaluación definitiva), según lo elegido en «Calcular sobre»."
 )
 
 _CONC_MAX = 500   # concordancias que se muestran por candidato (el CSV las exporta todas)
@@ -2280,10 +2283,12 @@ class TeclaApp(ctk.CTk):
                      text_color=_TEXT_MUTED).pack(side="left")
         _help_icon(itr_row,
                    "Índice de representatividad terminológica (IRT).\n\n"
-                   "Puntuación de 0 a 100 que resume la calidad del corpus para extraer "
-                   "terminología. Es la media de la saturación léxica (Heaps), la proporción "
-                   "de hápax, la dispersión de los candidatos entre documentos y, si se calcula, "
-                   "la estabilidad bootstrap.\n\n"
+                   "Puntuación de 0 a 100 que resume si el corpus basta para representar la "
+                   "terminología del dominio. Es la media de la saturación léxica (Heaps), la "
+                   "dispersión de las 50 unidades más frecuentes y, si se calcula, la estabilidad "
+                   "de las 30 más frecuentes al remuestrear los documentos.\n\n"
+                   "Sobre los candidatos es una estimación provisional; sobre los términos "
+                   "aprobados en la Revisión, la evaluación definitiva del inventario.\n\n"
                    "≥ 75: muy representativo\n"
                    "60–74: representativo\n"
                    "40–59: moderadamente representativo\n"
@@ -2313,7 +2318,7 @@ class TeclaApp(ctk.CTk):
         self._eval_description = ctk.CTkLabel(
             score_inner, text="",
             font=ctk.CTkFont(size=10), text_color=_TEXT_MUTED,
-            wraplength=280, justify="left", anchor="w",
+            wraplength=262, justify="left", anchor="w",
         )
         self._eval_description.pack(fill="x", pady=(4, 0))
 
@@ -2336,6 +2341,19 @@ class TeclaApp(ctk.CTk):
             anchor="w", justify="left",
         )
         # (los componentes se muestran en la tabla «Resultados por prueba»)
+
+        # Sobre qué se calcula: candidatos (provisional) o términos aprobados (definitiva)
+        mode_row = ctk.CTkFrame(score_card, fg_color="transparent")
+        mode_row.pack(fill="x", padx=16, pady=(0, 6))
+        ctk.CTkLabel(mode_row, text="Calcular sobre:", font=ctk.CTkFont(size=10),
+                     text_color=_TEXT_MUTED).pack(side="left")
+        self._eval_mode_var = tk.StringVar(value="Candidatos")
+        ctk.CTkSegmentedButton(
+            mode_row, values=["Candidatos", "Términos aprobados"],
+            variable=self._eval_mode_var, font=ctk.CTkFont(size=10), height=24,
+            selected_color=_ACCENT, selected_hover_color=_ACCENT_DIM,
+            command=lambda _v: self._start_full_eval(),
+        ).pack(side="left", padx=(6, 0))
 
         # Botón calcular representatividad (fast eval + bootstrap)
         btn_row = ctk.CTkFrame(score_card, fg_color="transparent")
@@ -2460,9 +2478,10 @@ class TeclaApp(ctk.CTk):
 
         dp_hdr = ctk.CTkFrame(dp_card, fg_color="transparent")
         dp_hdr.pack(fill="x", padx=10, pady=(8, 4))
-        ctk.CTkLabel(dp_hdr, text="Candidatos — dispersión (DP de Gries)",
+        self._eval_dp_title = ctk.CTkLabel(dp_hdr, text="Candidatos más frecuentes — dispersión (DP de Gries)",
                      font=ctk.CTkFont(size=11, weight="bold"), text_color=_TEXT,
-                     ).pack(side="left")
+                     )
+        self._eval_dp_title.pack(side="left")
         _help_icon(dp_hdr,
                    "Dispersión de Gries (DP)\n\n"
                    "Mide cómo de repartido está un candidato entre los documentos del corpus. "
@@ -2558,8 +2577,25 @@ class TeclaApp(ctk.CTk):
 
     # ── Evaluación completa (bajo demanda) ──
 
+    def _eval_approved(self) -> bool:
+        return getattr(self, "_eval_mode_var", None) is not None and \
+            self._eval_mode_var.get() == "Términos aprobados"
+
+    def _eval_units(self):
+        """Unidades sobre las que se evalúa: los candidatos o los términos aprobados."""
+        if not self._eval_approved():
+            return self._results
+        pool = self._all_results or self._results or []
+        return [t for t in pool
+                if self._review_data.get(t["lemma"], {}).get("status") == "aprobado"]
+
     def _start_full_eval(self):
         if self._eval_running or not self._results or not self._doc_stats:
+            return
+        if self._eval_approved() and not self._eval_units():
+            messagebox.showinfo("TECLA", "Todavía no hay términos aprobados. Revisa los candidatos "
+                                "en el paso 4 o calcula la evaluación provisional sobre los candidatos.")
+            self._eval_mode_var.set("Candidatos")
             return
         self._eval_running = True
         self._eval_btn.configure(state="disabled", text="Calculando métricas…")
@@ -2576,10 +2612,11 @@ class TeclaApp(ctk.CTk):
             )
 
             # ── Fase 1: métricas rápidas ──────────────────────────────────
+            units     = self._eval_units()
             heaps     = compute_heaps(self._documents)
             hapax     = compute_hapax_ratio(self._documents)
-            dp_scores = compute_dp(self._results, self._doc_stats)
-            dp_sum    = dp_stats(dp_scores, self._results)
+            dp_scores = compute_dp(units, self._doc_stats)
+            dp_sum    = dp_stats(dp_scores, units)
             rep_fast  = compute_representativity_score(heaps, hapax, dp_sum)
             self._eval_raw = {"heaps": heaps, "hapax": hapax, "dp": dp_sum}
             self.after(0, self._render_eval_fast, heaps, dp_scores, rep_fast)
@@ -2587,7 +2624,7 @@ class TeclaApp(ctk.CTk):
                 text="Calculando estabilidad (bootstrap)…"))
 
             # ── Fase 2: bootstrap (más lento) ─────────────────────────────
-            stability = compute_bootstrap_stability(self._results, self._doc_stats)
+            stability = compute_bootstrap_stability(units, self._doc_stats)
             rep = compute_representativity_score(heaps, hapax, dp_sum, stability=stability)
             self.after(0, self._render_bootstrap_results, stability, rep)
 
@@ -2611,8 +2648,10 @@ class TeclaApp(ctk.CTk):
 
         # Score card
         self._eval_score_num.configure(text=f"{score}", text_color=color)
+        approved = self._eval_approved()
         self._eval_score_label.configure(
-            text=f"El corpus es {label}",
+            text=(f"El corpus es {label}" if approved
+                  else f"Estimación provisional: el corpus es {label}"),
             text_color=color,
         )
         self._eval_description.configure(
@@ -2629,10 +2668,14 @@ class TeclaApp(ctk.CTk):
         # DP scores guardados para bootstrap
         self._eval_dp_scores = dp_scores
 
-        # Tabla DP — top 50 términos, ordenados por terminologicidad
+        # Tabla DP — las 50 unidades más frecuentes (las que entran en el DP medio)
+        from tecla.evaluation.corpus_metrics import top_by_frequency
+        self._eval_dp_title.configure(
+            text=("Términos aprobados más frecuentes" if approved else "Candidatos más frecuentes")
+            + " — dispersión (DP de Gries)")
+        self._eval_dp_tree.heading("term", text="Término" if approved else "Candidato")
         self._eval_dp_tree.delete(*self._eval_dp_tree.get_children())
-        top_terms = sorted(self._results,
-                           key=lambda t: t["terminologicity"], reverse=True)[:50]
+        top_terms = top_by_frequency(self._eval_units(), 50)
         for i, t in enumerate(top_terms, 1):
             dp_val = dp_scores.get(t["lemma"], None)
             dp_str = f"{dp_val:.3f}" if dp_val is not None else "—"
@@ -2654,15 +2697,15 @@ class TeclaApp(ctk.CTk):
         if heaps.get("beta") is not None:
             rows.append(("Saturación", f"β de Heaps = {num(heaps['beta'])}", comp.get("saturación"),
                          "Velocidad a la que crece el vocabulario al añadir textos"))
+        if dp:
+            rows.append(("Dispersión", f"DP medio = {num(dp.get('mean', 0))} · 50 más frec.",
+                         comp.get("dispersión"), "Reparto de las 50 unidades más frecuentes entre los documentos"))
+        rows.append(("Estabilidad", f"{round(100 * stab)} % · 30 más frec." if stab is not None
+                     else "calculando…" if self._eval_running else "—",
+                     comp.get("estabilidad"), "Unidades más frecuentes que se mantienen al remuestrear"))
         if hapax:
             rows.append(("Hápax", f"{num(100 * hapax.get('ratio', 0), 1)} % de los tipos",
-                         comp.get("hápax léxico"), "Palabras distintas que aparecen una sola vez"))
-        if dp:
-            rows.append(("Dispersión", f"DP medio = {num(dp.get('mean', 0))}", comp.get("dispersión"),
-                         "Reparto de los candidatos entre los documentos"))
-        rows.append(("Estabilidad", f"{round(100 * stab)} % (remuestreo)" if stab is not None
-                     else "calculando…" if self._eval_running else "—",
-                     comp.get("estabilidad"), "Candidatos principales que se mantienen al remuestrear"))
+                         None, "Palabras distintas que aparecen una sola vez; dato descriptivo"))
         return rows
 
     def _update_eval_table(self):
@@ -2670,7 +2713,7 @@ class TeclaApp(ctk.CTk):
         tree.delete(*tree.get_children())
         for i, (name, value, pts, _) in enumerate(self._eval_rows(), 1):
             tree.insert("", "end", tags=("odd" if i % 2 else "even",),
-                        values=(name, value, "—" if pts is None else pts))
+                        values=(name, value, "no puntúa" if pts is None else pts))
         self._eval_csv_btn.configure(state="normal" if self._eval_rep else "disabled")
 
     def _export_eval_csv(self):
