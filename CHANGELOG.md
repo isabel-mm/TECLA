@@ -1,6 +1,8 @@
 # Cambios en TECLA
 
-## Próxima versión (sin publicar)
+## 2.3.0
+
+Para actualizar no hace falta desinstalar la versión anterior: basta con instalar la nueva encima. Los proyectos y las revisiones se conservan.
 
 ### Novedades
 
