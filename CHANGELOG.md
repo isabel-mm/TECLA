@@ -1,5 +1,12 @@
 # Cambios en TECLA
 
+## Sin publicar
+
+### Novedades
+
+- **Nube de los términos aprobados.** En el paso 4, un botón genera una nube de palabras con los términos aprobados hasta ese momento, con el tamaño según su frecuencia. Se muestra en una ventana aparte y se guarda en `_tecla_output/graphs/review/word_cloud_approved.png`.
+- **Lista de candidatos por páginas.** La lista de la revisión se recorre de 300 en 300 con dos flechas al pie, que indican qué tramo se ve y cuántos candidatos hay en total, en lugar de mostrar solo los 300 primeros.
+
 ## 2.3.0
 
 Para actualizar no hace falta desinstalar la versión anterior: basta con instalar la nueva encima. Los proyectos y las revisiones se conservan.

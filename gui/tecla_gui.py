@@ -23,6 +23,7 @@ import tkinter.ttk as ttk
 from tkinter import filedialog, messagebox
 
 from pipeline.pipeline import run_tecla_pipeline
+from tecla.extractor.word_cloud import generate_word_cloud
 from tecla.extractor.hybrid_extractor import (classify_variant, display_form, lemma_key,
                                               surface_forms, variants_summary)
 
@@ -474,7 +475,7 @@ class TeclaApp(ctk.CTk):
         self._review_data    = {}     # CT → {status, notes}
         self._rev_selected   = None
         self._rev_term_btns  = {}     # CT → botón
-        self._rev_more_label = None   # aviso de candidatos no mostrados
+        self._rev_page       = 0      # página de la lista de candidatos
         self._conc_texts     = None   # textos del corpus para las concordancias
         self._conc_loading   = False
         self._conc_cache     = {}     # CT → [(documento, inicio, fin)]
@@ -1470,6 +1471,37 @@ class TeclaApp(ctk.CTk):
 
         self._log(f"📊  Gráficos de extracción guardados en:\n   {out_dir}")
 
+    def _word_cloud_path(self) -> Path:
+        out = self._output_dir() / "graphs" / "review"
+        out.mkdir(parents=True, exist_ok=True)
+        return out / "word_cloud_approved.png"
+
+    def _approved_terms(self):
+        return [t for t in self._all_results
+                if self._review_data.get(t["lemma"], {}).get("status") == "aprobado"]
+
+    def _save_word_cloud(self) -> Path | None:
+        """Nube de los términos aprobados en la revisión, con el tamaño según su frecuencia."""
+        words = [(display_form(t), t["frequency"]) for t in self._approved_terms()]
+        try:
+            return generate_word_cloud(words, self._word_cloud_path())
+        except Exception as exc:
+            self._log(f"⚠  No se pudo generar la nube de palabras: {exc}")
+            return None
+
+    def _show_word_cloud(self):
+        """Genera la nube con los términos aprobados hasta ahora, la guarda y la muestra."""
+        approved = self._approved_terms()
+        if not approved:
+            messagebox.showinfo("TECLA", "Todavía no hay términos aprobados: "
+                                         "la nube se hace con los que apruebes en la revisión.")
+            return
+        path = self._save_word_cloud()
+        if path:
+            self._log(f"☁  Nube de los {_miles(len(approved))} términos aprobados guardada en:\n   {path}")
+            self._show_graph_fullscreen(
+                path, title=f"Nube de los términos aprobados ({_miles(len(approved))})")
+
     # ═══════════════════════════════════════════
     # Pestaña 5 — Revisión
     # ═══════════════════════════════════════════
@@ -1492,6 +1524,11 @@ class TeclaApp(ctk.CTk):
         self._rev_pct_label = ctk.CTkLabel(rev_bar, text="", font=ctk.CTkFont(size=12, weight="bold"),
                                            text_color=_TEAL)
         self._rev_pct_label.pack(side="left")
+        ctk.CTkButton(rev_bar, text="☁  Nube de los términos aprobados", width=230, height=28,
+                      fg_color=_BG_CARD, hover_color=_BG_CARD2,
+                      border_width=1, border_color=_ACCENT2, text_color=_ACCENT2,
+                      font=ctk.CTkFont(size=12), command=self._show_word_cloud,
+                      ).pack(side="right")
         rev_bar = ctk.CTkFrame(tab, fg_color="transparent")   # fila de la exportación
         rev_bar.pack(fill="x", padx=18, pady=(4, 0))
         for fmt in ("TXT", "JSON", "CSV"):
@@ -1531,7 +1568,7 @@ class TeclaApp(ctk.CTk):
                      ).pack(fill="x", padx=10, pady=(12, 4))
 
         self._rev_filter_var = ctk.StringVar(value="Todos")
-        _Segmented(left,
+        self._rev_filter_seg = _Segmented(left,
                                values=["Todos", "Pendiente", "Aprobado", "Rechazado"],
                                variable=self._rev_filter_var,
                                fg_color=_BG_CARD2, selected_color=_SEG_SELECTED,
@@ -1539,14 +1576,31 @@ class TeclaApp(ctk.CTk):
                                unselected_color=_BG_CARD2,
                                text_color=_SEG_TEXT,
                                font=ctk.CTkFont(size=10),
-                               command=self._render_revision_list,
-                               ).pack(fill="x", padx=8, pady=(0, 6))
+                               command=lambda _=None: self._render_revision_list(page=0),
+                               )
+        self._rev_filter_seg.pack(fill="x", padx=8, pady=(0, 6))
+
+        # Paginación: ◀ 1–300 de 2.345 ▶ (al pie de la lista)
+        pager = ctk.CTkFrame(left, fg_color="transparent")
+        pager.pack(side="bottom", fill="x", padx=8, pady=(0, 10))
+        pager_btn = dict(width=34, height=26, fg_color=_BG_CARD2, hover_color=_BORDER,
+                         text_color=_ACCENT2, font=ctk.CTkFont(size=12, weight="bold"),
+                         corner_radius=6)
+        self._rev_prev_btn = ctk.CTkButton(pager, text="◀", **pager_btn,
+                                           command=lambda: self._render_revision_list(page=self._rev_page - 1))
+        self._rev_prev_btn.pack(side="left")
+        self._rev_next_btn = ctk.CTkButton(pager, text="▶", **pager_btn,
+                                           command=lambda: self._render_revision_list(page=self._rev_page + 1))
+        self._rev_next_btn.pack(side="right")
+        self._rev_page_label = ctk.CTkLabel(pager, text="", font=ctk.CTkFont(size=10),
+                                            text_color=_TEXT_MUTED)
+        self._rev_page_label.pack(side="left", fill="x", expand=True)
 
         self._rev_list_scroll = ctk.CTkScrollableFrame(
             left, fg_color=_BG_CARD, corner_radius=6,
             scrollbar_button_color=_BG_CARD2,
         )
-        self._rev_list_scroll.pack(fill="both", expand=True, padx=6, pady=(0, 10))
+        self._rev_list_scroll.pack(fill="both", expand=True, padx=6, pady=(0, 4))
 
         # ── Panel de detalle derecho ──
         # Orden: estado y término · concordancias · datos · notas
@@ -1691,24 +1745,25 @@ class TeclaApp(ctk.CTk):
                       corner_radius=8, command=self._save_review_notes,
                       ).pack(anchor="w", padx=22, pady=(0, 16))
 
-    def _render_revision_list(self, _=None):
-        for w in self._rev_term_btns.values():
+    def _render_revision_list(self, _=None, page: int | None = None):
+        for w in self._rev_list_scroll.winfo_children():
             w.destroy()
         self._rev_term_btns = {}
 
         filter_val = self._rev_filter_var.get().lower()
-        max_rows   = 300   # la lista se limita para que la interfaz no se bloquee
-        omitted    = 0
+        page_size  = 300   # la lista se pagina para que la interfaz no se bloquee
+        matches = [t for t in self._results
+                   if filter_val == "todos"
+                   or self._review_data.get(t["lemma"], {}).get("status", "pendiente") == filter_val]
+        pages = max(1, -(-len(matches) // page_size))
+        if page is not None:
+            self._rev_page = page
+        self._rev_page = min(max(self._rev_page, 0), pages - 1)
+        first = self._rev_page * page_size
 
-        for t in self._results:
+        for t in matches[first:first + page_size]:
             term  = t["lemma"]
             entry = self._review_data.get(term, {"status": "pendiente", "notes": ""})
-            if filter_val != "todos" and entry["status"] != filter_val:
-                continue
-            if len(self._rev_term_btns) >= max_rows:
-                omitted += 1
-                continue
-
             color = _STATUS_COLOR[entry["status"]]
             btn = ctk.CTkButton(
                 self._rev_list_scroll,
@@ -1723,15 +1778,20 @@ class TeclaApp(ctk.CTk):
             btn.pack(fill="x", pady=1)
             self._rev_term_btns[term] = btn
 
-        if self._rev_more_label is not None:
-            self._rev_more_label.destroy()
-            self._rev_more_label = None
-        if omitted:
-            self._rev_more_label = ctk.CTkLabel(
-                self._rev_list_scroll,
-                text=f"Se muestran los {max_rows} primeros.\nQuedan {_miles(omitted)} más: usa el filtro.",
-                text_color=_TEXT_MUTED, font=ctk.CTkFont(size=10), justify="left")
-            self._rev_more_label.pack(anchor="w", padx=8, pady=8)
+        # Paginación
+        if matches:
+            last = min(first + page_size, len(matches))
+            self._rev_page_label.configure(
+                text=f"{_miles(first + 1)}–{_miles(last)} de {_miles(len(matches))}")
+        else:
+            self._rev_page_label.configure(text="")
+        self._rev_prev_btn.configure(state="normal" if self._rev_page > 0 else "disabled")
+        self._rev_next_btn.configure(state="normal" if self._rev_page < pages - 1 else "disabled")
+        if page is not None:
+            try:   # al cambiar de página, volver al principio de la lista
+                self._rev_list_scroll._parent_canvas.yview_moveto(0)
+            except Exception:
+                pass
 
         self._update_review_counter()
         if not self._rev_term_btns:
@@ -2927,7 +2987,7 @@ class TeclaApp(ctk.CTk):
             command=lambda p=out_dir: self._open_folder(p),
         ).pack(anchor="w", padx=12, pady=(10, 0))
 
-    def _show_graph_fullscreen(self, path: Path):
+    def _show_graph_fullscreen(self, path: Path, title: str = "Evaluación del corpus — gráficos"):
         """Abre el gráfico guardado en una ventana ampliada."""
         try:
             from PIL import Image, ImageTk
@@ -2943,7 +3003,7 @@ class TeclaApp(ctk.CTk):
             return
 
         win = ctk.CTkToplevel(self)
-        win.title("Evaluación del corpus — gráficos")
+        win.title(title)
         win.geometry("1400x860")
         win.configure(fg_color=_BG_ROOT)
         win.focus_force()
@@ -3599,7 +3659,7 @@ class TeclaApp(ctk.CTk):
         self._eval_done = False
         self._load_review_data()
         self._apply_filters(notify=False)
-        self._render_revision_list()
+        self._render_revision_list(page=0)
         self._tabview.mark_done("Extracción", bool(results))
         self._update_graficos()
         if self._eval_btn is not None:
