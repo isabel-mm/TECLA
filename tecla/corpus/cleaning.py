@@ -251,74 +251,176 @@ def remove_numeric_only_lines(text):
 # ---------------------------------------------------------------------------
 # BIBLIOGRAPHY REMOVAL
 # ---------------------------------------------------------------------------
+# [2026-11-07] Se quitan las listas de referencias como bloques, en cualquier
+# posición del documento, en lugar de cortar desde el encabezado hasta el final:
+# así se conservan los capítulos, apéndices y notas que siguen a las referencias
+# de un capítulo de libro o de un volumen colectivo. Cada bloque empieza en un
+# encabezado («References», «Bibliografía»…) al que siguen al menos tres
+# entradas («Apellido, Nombre … año», «[12] … año», «SIGLA = Autor año», una URL)
+# y termina donde dejan de aparecer entradas durante más de 1.200 caracteres, o
+# en un encabezado de apéndice, notas o capítulo. También se quita el índice de
+# materias final. Comprobado documento a documento sobre el corpus de la tesis
+# (tesis/sin_bibliografia_2026-11/limpieza_v2/).
 
-def _remove_bibliography_generic(text, section_titles, ref_patterns, min_position=0.7):
-    """Internal helper for bibliography section deletion.
+_BIB_SECTIONS = {
+    "es": [r'\bREFERENCIAS?(?:\s+(?:BIBLIOGR[ÁA]\S{1,3}CAS?|CITADAS?))?\b', r'\bBIBLIOGRAF[ÍI]A(?:\s+(?:CITADA|B[ÁA]SICA|COMPLEMENTARIA))?\b',
+           r'\bOBRAS\s+CITADAS\b', r'\bABREVIATURAS\s+Y\s+REFERENCIAS\s+BIBLIOGR[ÁA]\S{1,3}CAS\b'],
+    "en": [r'\bREFERENCES(?:\s+CITED)?\b', r'\bREFERENCE\s+LIST\b', r'\bBIBLIOGRAPHY\b', r'\bWORKS\s+CITED\b', r'\bLITERATURE\s+CITED\b'],
+}
 
-    [FIX 2026-07-16/17] Two safeguards, added after diagnosing catastrophic
-    truncation of books and papers:
+YEAR = r"(?:(?:1[5-9]|20)\d\d[a-z]?|en\s+prensa|in\s+press|s\.\s?f\.|n\.\s?d\.)"
+# Entrada bibliográfica: «Apellido, Nombre|I.» (o «APELLIDO, N.») y un año poco después.
+L_UP = "A-ZÀ-ÞА-ЯЁ"
+ENTRY = re.compile(
+    r"[" + L_UP + r"][\w'’`´\-]+(?:\s[" + L_UP + r"][\w'’`´\-]+)?,\s+(?:[" + L_UP + r"][\w'’`´\-]*\.?[\s\-]?){1,4}[^\n]{0,300}?\b" + YEAR + r"\b"   # Apellido, Nombre … año
+    r"|\[\d{1,3}\][^\n]{0,400}?\b" + YEAR + r"\b"                                                   # [12] … año
+    r"|(?:^|(?<=\s))\d{1,3}\.\s[^\n]{0,400}?\b" + YEAR + r"\b"
+    r"|\b[" + L_UP + r"]\.(?:\s?[" + L_UP + r"]\.)?\s[" + L_UP + r"]{2,}[\w\-]*[;,][^\n]{0,300}?\b" + YEAR + r"\b"                                     # 12. … año
+    r"|^[^\n=]{1,60}\s=\s[^\n]{0,250}?\b" + YEAR + r"\b"                                           # SIGLA = Autor año
+    r"|https?://\S+|<?www\.\S+", re.M)                                                         # URL de una fuente
+GAP, MIN_ENTRIES, LOOK, BRIDGE, LOOK_MIN, SHORT_TAIL = 1200, 3, 1500, 3000, 2500, 1500
+# Encabezados que cierran siempre una lista de referencias
+STOP = re.compile(
+    r"^\s*(?:\d+(?:\.\d+)*\.?\s*)?(?:Appendix|Appendices|APPENDIX|APPENDICES|Anexos?|ANEXOS?|Ap[ée]ndices?|AP[ÉE]NDICES?|"
+    r"Notas|NOTAS|Notes|NOTES|Chapter|CHAPTER|Cap[íi]tulo|CAP[ÍI]TULO|CAP´ITULO|Solutions)"
+    r"(?=\s*$|\s*[:.]|\s+(?:\d|[IVXLC]+\b|[A-Z]\b|[A-ZÀ-Þ][a-zà-ÿ]))", re.M)
 
-    1. HEADING-ONLY matching: the section title must constitute a line by
-       itself (optionally preceded by a section number and followed by a
-       colon). Without this, the lowercase word "references" in running prose
-       ("...references to children...") triggered the cut.
-    2. POSITIONAL safeguard: the heading must appear in the final portion of
-       the document (beyond `min_position`). Real bibliographies live at the
-       end; earlier headings are tables of contents or per-chapter reference
-       lists in books, and cutting there amputates entire chapters.
-    """
-    n = len(text)
-    title_res = [
-        re.compile(
-            r"^\s*(?:\d+(?:\.\d+)*\.?\s*|[IVXLCDM]+\.?\s+)?(?:" + title + r")\s*:?\s*$",
-            re.IGNORECASE,
-        )
-        for title in section_titles
-    ]
-    # Variante "fusionada" (artefacto de PDF): el encabezado y la primera
-    # referencia caen en la misma línea ("References Stefanowitsch, Anatol.").
-    # Se exige apellido capitalizado seguido de coma para no confundir con prosa.
-    title_res += [
-        re.compile(r"^\s*(?:" + title + r")\s+[A-ZÀ-Þ][a-zà-ÿ]+,\s", re.IGNORECASE)
-        for title in section_titles
-    ]
-    candidates = []
-    offset = 0
+def is_stop(text, a, b):
+    """¿Hay entre a y b un encabezado de apéndice, notas o capítulo? Se ignoran las
+    cabeceras de página, que se repiten a lo largo del documento."""
+    for m in STOP.finditer(text, a, b):
+        ls = text.rfind("\n", 0, m.start()) + 1; le = text.find("\n", m.start()); le = len(text) if le < 0 else le
+        line = text[ls:le].strip()
+        if line and text.count(line) >= 3 and len(line) < 120:
+            continue                                   # cabecera de página
+        if re.search(r"\bpp?\.|ISBN|\(" + YEAR + r"\)", line + " " + text[m.start():m.start() + 70]):
+            continue                                   # «Capítulo VIII, pp. 175…» dentro de una referencia
+        return True
+    return False
+INDEX_TITLES = {"en": r"(?:Subject\s+|Author\s+|Name\s+|General\s+)?Index|INDEX", "es": r"(?i:[ÍI]ndice\s+(?:anal[íi]tico|tem[áa]tico|de\s+materias|onom[áa]stico|alfab[ée]tico))"}
+
+def _heading_starts(text, lang):
+    sec = _BIB_SECTIONS[lang]
+    title_res = [re.compile(r"^\s*(?:\d+(?:\.\d+)*\.?\s*|[IVXLCDM]+(?:\.\d+)*\.?\s+)?(?:" + t + r")\s*:?\s*$", re.I) for t in sec]
+    fused_res = [re.compile(r"^\s*(?:\d+(?:\.\d+)*\.?\s*|[IVXLCDM]+(?:\.\d+)*\.?\s+)?(?i:" + t + r")\s*:?\s+(?:[A-ZÀ-Þ]|\d|\[)") for t in sec]
+    out, off = [], 0
     for line in text.splitlines(keepends=True):
-        stripped = line.strip()
-        if stripped and len(stripped) < 60:
-            for tre in title_res:
-                if tre.match(stripped):
-                    if offset >= n * min_position:
-                        tail = text[offset:]
-                        if any(re.search(patt, tail) for patt in ref_patterns):
-                            candidates.append(offset)
-                    break
-        offset += len(line)
-    if candidates:
-        return text[:min(candidates)].strip()
-    return text
+        s = line.strip()
+        if s and any(r.match(s) for r in (title_res if len(s) < 60 else []) + fused_res):
+            out.append(off)
+        off += len(line)
+    surname = (r"\s*:?\s+[A-ZÀ-Þ][\w'’`´\-]+(?:(?:\s+[A-ZÀ-Þ][\w'’`´\-]+)?,"
+               r"|(?:\s+(?:y|and|&)\s+[A-ZÀ-Þ][\w'’`´\-]+|\s+et\s+al\.)?\s+\(" + YEAR + r"\);)")
+    for t in sec:
+        for m in re.finditer(r"(?<=[\s.\)\]])(?i:" + t + r")(?=" + surname + r")", text):
+            w = m.group(0)
+            if w[0].isupper() and (w.isupper() or w[1:2].islower()):
+                out.append(m.start())
+    return sorted(set(out))
+
+
+def _line(text, pos):
+    ls = text.rfind("\n", 0, pos) + 1; le = text.find("\n", pos); le = len(text) if le < 0 else le
+    return text[ls:le].strip()
+
+
+def _running_header(text, m):
+    """La «entrada» es en realidad una cabecera de página repetida («… Liendo, P. y otros»)."""
+    around = text[max(0, m.start() - 45):m.start() + 12]
+    return len(around.strip()) > 30 and text.count(around) >= 3
+
+
+def block_end(text, start):
+    """Fin del bloque de referencias que empieza en `start`, o None si no lo es."""
+    ms = [m for m in ENTRY.finditer(text, start) if not _running_header(text, m)]
+    if len([m for m in ms if m.start() < start + LOOK_MIN]) < MIN_ENTRIES:
+        # lista breve al final del documento («References Biber, D. 1988…»)
+        if len(text) - start <= SHORT_TAIL and re.search(r"\b" + YEAR + r"\b", text[start:]):
+            return len(text)
+        return None
+    last = ms[0]
+    for k, m in enumerate(ms[1:], 1):
+        gap = m.start() - last.end()
+        if is_stop(text, last.end(), m.start()) or re.search(r"\b(?:Appendix|Anexo|Ap[ée]ndice)\s+(?:\d+|[A-Z])\s*[:.]", text[last.end():m.start()]):
+            break
+        if gap > GAP:
+            # una tabla o un pie de página en medio de la lista: se salta si
+            # detrás vuelven, enseguida, varias entradas
+            again = [x for x in ms[k:] if x.start() < m.start() + LOOK]
+            if gap > BRIDGE or len(again) < 3:
+                break
+        last = m
+    # hasta el final de la línea de la última entrada y sus líneas de continuación breves
+    end = text.find("\n", last.end()); end = len(text) if end < 0 else end
+    rest = text[end:]
+    dense = 1000 * len(re.findall(r"\b" + YEAR + r"\b", rest)) / max(1, len(rest))
+    if ((len(rest) <= SHORT_TAIL and re.search(r"\b" + YEAR + r"\b", rest) or len(rest) <= 2 * SHORT_TAIL and dense >= 3) and not is_stop(text, end, len(text))
+            and not re.search(r"\b(?:Appendix|APPENDIX|Anexo|ANEXO|Ap[ée]ndice|AP[ÉE]NDICE)\b", rest)):
+        return len(text)                      # restos de la lista al final del documento
+    SIGNAL = re.compile(r"\d+\s*[–\-]\s*\d+|\bpp?\.|\b(?:In|En|ed\.|eds\.|edd\.|Press|University|Universidad|Publishing|"
+                        r"Benjamins|Routledge|Springer|Elsevier|ELRA|Association|Editorial|Gredos|Ariel)\b|https?://|doi", re.I)
+    for _ in range(4):
+        nxt = text.find("\n", end + 1)
+        line = text[end + 1: nxt if nxt >= 0 else len(text)]
+        prev = text[text.rfind("\n", 0, end) + 1:end].rstrip()
+        if not line.strip() or len(line) > 170 or STOP.match(line) or nxt < 0:
+            break
+        unfinished = not re.search(r"[.)”\"»]$", prev) or prev.endswith(("\xad", "-"))
+        if not (unfinished or SIGNAL.search(line)):
+            break
+        end = nxt
+    rest = text[end:]
+    dense = 1000 * len(re.findall(r"\b" + YEAR + r"\b", rest)) / max(1, len(rest))
+    if ((len(rest) <= SHORT_TAIL and re.search(r"\b" + YEAR + r"\b", rest) or len(rest) <= 2 * SHORT_TAIL and dense >= 3) and not is_stop(text, end, len(text))
+            and not re.search(r"\b(?:Appendix|APPENDIX|Anexo|ANEXO|Ap[ée]ndice|AP[ÉE]NDICE)\b", rest)):
+        return len(text)                      # restos de la lista al final del documento
+    return end
+
+def index_start(text, lang):
+    """Índice de materias final («Index», «Índice analítico»…), solo o pegado a la primera entrada."""
+    n = len(text)
+    rx = re.compile(r"(?:^|(?<=[\s.]))(?:" + INDEX_TITLES[lang] + r")(?=\s*$|\s+[" + L_UP + r"a-z#\d])", re.M)
+    for m in rx.finditer(text):
+        w = m.group(0)
+        if m.start() >= 0.85 * n and w[0].isupper():
+            tail = text[m.end():m.end() + 3000]
+            years = len(re.findall(r"\b(?:1[5-9]|20)\d\d\b", tail))
+            if len(re.findall(r",\s*\d{1,4}\b", tail)) >= 25 and years <= 8:
+                return m.start()
+    return None
+
+
+def bibliography_spans(text, language="en"):
+    """Tramos (inicio, fin) de las listas de referencias y del índice de materias final."""
+    lang = language.lower()
+    if lang not in _BIB_SECTIONS:
+        return []
+    out = []
+    for s in _heading_starts(text, lang):
+        if out and s < out[-1][1]:
+            continue
+        e = block_end(text, s)
+        if e is not None:
+            out.append((s, e))
+    i = index_start(text, lang)
+    if i is not None and any(a <= i < b for a, b in out):
+        i = None                                   # «Science Citation Index» dentro de una referencia
+    if i is not None:
+        out = [(a, b) for a, b in out if a < i] + [(i, len(text))]
+    return out
+
 
 
 def remove_bibliography(text, language="en"):
-    lang = language.lower()
-    mapping = {
-        "es": ([
-            r'\bREFERENCIAS?\s+BIBLIOGR[ÁA]FICAS?\b',
-            r'\bBIBLIOGRAF[ÍI]A\b'
-        ], [r'\[\d+\]', r'\(\d{4}\)', r'https?://', r'\d+\.\s']),
-        "en": ([
-            r'\bREFERENCES\b',
-            r'\bBIBLIOGRAPHY\b',
-            r'\bWORKS\s+CITED\b'
-        ], [r'\[\d+\]', r'\(\d{4}\)', r'https?://', r'\d+\.\s']),
-    }
-
-    if lang not in mapping:
+    """Texto sin sus listas de referencias ni el índice de materias final."""
+    sp = bibliography_spans(text, language)
+    if not sp:
         return text
-
-    sec_titles, ref_patts = mapping[lang]
-    return _remove_bibliography_generic(text, sec_titles, ref_patts)
+    parts, last = [], 0
+    for a, b in sp:
+        parts.append(text[last:a]); last = b
+    parts.append(text[last:])
+    return "\n".join(p.strip("\n") for p in parts if p.strip()).strip()
 
 
 # ---------------------------------------------------------------------------

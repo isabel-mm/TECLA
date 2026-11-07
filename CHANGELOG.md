@@ -7,6 +7,11 @@
 - **Nube de los términos aprobados.** En el paso 4, un botón genera una nube de palabras con los términos aprobados hasta ese momento, con el tamaño según su frecuencia. Se muestra en una ventana aparte y se guarda en `_tecla_output/graphs/review/word_cloud_approved.png`.
 - **Lista de candidatos por páginas.** La lista de la revisión se recorre de 300 en 300 con dos flechas al pie, que indican qué tramo se ve y cuántos candidatos hay en total, en lugar de mostrar solo los 300 primeros.
 
+### Correcciones
+
+- **Limpieza de las referencias bibliográficas.** Cada lista de referencias se quita como un bloque, esté donde esté: también las que cierran cada capítulo de un libro o de un volumen colectivo, sin tocar los capítulos, apéndices y notas que las siguen. Antes, la limpieza cortaba desde el encabezado hasta el final del documento o no detectaba la sección (encabezados pegados a la primera referencia o a media línea, numeraciones como «X.5.», «Bibliografía básica», ligaduras en «bibliográficas»). Se quita también el índice de materias final de los libros.
+- **Lengua de la limpieza.** Si no se indica la lengua del corpus, se detecta en cada documento antes de limpiarlo, para aplicar los encabezados de referencias de esa lengua.
+
 ## 2.3.0
 
 Para actualizar no hace falta desinstalar la versión anterior: basta con instalar la nueva encima. Los proyectos y las revisiones se conservan.

@@ -68,6 +68,12 @@ def run_tecla_pipeline(
 
     start_session(str(corpus_path))
 
+    # La limpieza depende de la lengua (encabezados de la bibliografía,
+    # títulos de sección): si se ha fijado, se le pasa; si no, la detecta
+    # en cada documento (tecla.corpus.builder).
+    if language and language != "auto" and not cleaning_options.get("language"):
+        cleaning_options = {**cleaning_options, "language": language}
+
     # ------------------------------------------------------------------
     # 1. Detect input format
     # ------------------------------------------------------------------

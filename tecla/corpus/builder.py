@@ -28,6 +28,25 @@ from .statistics import corpus_statistics, compute_global_statistics
 # INTERNAL: SHARED STATS WRITER
 # ---------------------------------------------------------------------------
 
+
+def _with_language(raw_text, clean_params):
+    """Opciones de limpieza con la lengua del documento.
+
+    Varias operaciones dependen de la lengua (los encabezados de la
+    bibliografía, los títulos de sección, las palabras vacías). Si no se ha
+    fijado, se detecta en cada documento; sin ella, clean_text() usaría el
+    inglés y, en un corpus en español, no reconocería «Referencias».
+    """
+    params = dict(clean_params or {})
+    if not params.get("language"):
+        from tecla.corpus.language_detection import detect_language
+        try:
+            lang, _ = detect_language(raw_text)
+        except Exception:
+            lang = "en"
+        params["language"] = lang if lang in ("en", "es") else "en"
+    return params
+
 def _write_stats_csv(doc_stats, stats_output):
     """Write per-document and global statistics to CSV."""
     global_stats = compute_global_statistics(doc_stats)
@@ -155,7 +174,7 @@ def build_corpus_from_txt(
         meta["raw_txt_path"] = raw_out
 
         if clean:
-            cleaned = clean_text(raw_text, **clean_params)
+            cleaned = clean_text(raw_text, **_with_language(raw_text, clean_params))
             clean_out = os.path.join(clean_dir, filename)
             _write_txt(clean_out, cleaned)
             meta["clean_txt_path"] = clean_out
@@ -299,7 +318,7 @@ def build_corpus(
 
         # Cleaned version
         if clean:
-            cleaned = clean_text(raw_text, **clean_params)
+            cleaned = clean_text(raw_text, **_with_language(raw_text, clean_params))
             clean_txt_path = os.path.join(clean_dir, f"{fname_no_ext}.txt")
             _write_txt(clean_txt_path, cleaned)
             meta["clean_txt_path"] = clean_txt_path
