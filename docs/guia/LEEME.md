@@ -7,4 +7,4 @@ pandoc docs/guia/guia_uso.md -o TECLA_GUIA_USO.pdf --pdf-engine=xelatex --resour
        -V mainfont="Helvetica Neue" -V monofont="Menlo" -V monofontoptions="Scale=0.85"
 ```
 
-Las capturas son las de `web/img/`.
+Las capturas son las de `docs/guia/img/`: las de `web/img/` con recuadros numerados, que genera `docs/guia/anotar_capturas.py`.
