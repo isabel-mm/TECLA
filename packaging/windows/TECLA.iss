@@ -3,7 +3,7 @@
 ;   ISCC packaging\windows\TECLA.iss
 
 #define AppName "TECLA"
-#define AppVersion "2.3.0"
+#define AppVersion "2.4.0"
 #define AppUrl "https://isabel-mm.github.io/TECLA/"
 
 [Setup]

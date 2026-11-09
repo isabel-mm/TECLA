@@ -1,6 +1,6 @@
 ---
 title: "TECLA: guía de uso"
-subtitle: "Versión 2.3.0"
+subtitle: "Versión 2.4.0"
 lang: es
 toc: true
 toc-depth: 2
@@ -212,9 +212,11 @@ Para cada candidato, el panel de la derecha muestra, en este orden:
 4. **Los datos de la extracción**, en una tabla con todas las medidas del candidato.
 5. **Las notas.**
 
-La revisión se guarda automáticamente en la carpeta de trabajo, junto con la lista de candidatos. Al volver a abrir TECLA con la misma carpeta, un aviso ofrece **continuar la revisión** donde se dejó, sin volver a ejecutar la extracción; *Empezar de nuevo* archiva la revisión anterior como copia, sin borrarla. Si el corpus ha cambiado desde entonces, el aviso lo indica: conviene volver a ejecutar la extracción, y las decisiones ya tomadas se conservan. Cuando el corpus produce muchos candidatos, la lista muestra los 300 primeros; el filtro por estado permite llegar al resto.
+La revisión se guarda automáticamente en la carpeta de trabajo, junto con la lista de candidatos. Al volver a abrir TECLA con la misma carpeta, un aviso ofrece **continuar la revisión** donde se dejó, sin volver a ejecutar la extracción; *Empezar de nuevo* archiva la revisión anterior como copia, sin borrarla. Si el corpus ha cambiado desde entonces, el aviso lo indica: conviene volver a ejecutar la extracción, y las decisiones ya tomadas se conservan. La lista se recorre de 300 en 300 con las flechas del pie, que indican qué tramo se ve y cuántos candidatos hay en total.
 
 Los botones de la parte superior exportan los **términos revisados** en CSV o JSON (con sus cifras, su estado, la marca de uso de autor y las notas) o en TXT (un término por línea). Por defecto se exportan los aprobados; con la casilla *incluir los rechazados*, también estos, con su estado.
+
+El botón *Nube de los términos aprobados* genera una nube de palabras con los términos aprobados hasta ese momento, con un tamaño proporcional a su frecuencia. Se muestra en una ventana aparte y se guarda en `_tecla_output/graphs/review/word_cloud_approved.png`.
 
 ![Pantalla Revisión.](web/img/revision.png){width=100%}
 
@@ -276,7 +278,7 @@ tecla extract --corpus mi_proyecto/corpus --lang es \
 | `--top-k` | Número máximo de candidatos |
 | `--percentile` | Conserva solo el percentil superior de la lista |
 | `--structure` | Limpia el ruido estructural (números de página, líneas sueltas) |
-| `--remove-bibliography` | Elimina el bloque de referencias |
+| `--remove-bibliography` | Elimina las listas de referencias bibliográficas (también las de cada capítulo) y el índice de materias final |
 | `--lemmatize` | Lematiza durante la limpieza |
 | `--tfidf-weight` | Peso del *TF-IDF* en el índice (por defecto, 0,5); el del *NC-value* es el resto |
 
